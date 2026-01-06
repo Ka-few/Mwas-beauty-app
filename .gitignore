@@ -20,3 +20,35 @@ rad.json
 *.flf
 #Test results file
 TestResults.xml
+
+### Node ###
+# Dependencies
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# SQLite databases (if you don't want to commit them)
+*.db
+*.sqlite
+*.sqlite3

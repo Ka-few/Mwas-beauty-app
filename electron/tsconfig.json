@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",            // <--- important for import.meta
+    "strict": true,
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "types": ["node"]
+  },
+  "include": ["main.ts", "preload.ts"]
+}

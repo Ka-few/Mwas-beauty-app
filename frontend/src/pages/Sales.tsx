@@ -26,17 +26,7 @@ export default function Sales() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  const handleServiceChange = (serviceId: number, stylistId: number) => {
-    const existing = selectedServices.find(s => s.service_id === serviceId);
-    if (existing) {
-      setSelectedServices(selectedServices.map(s => s.service_id === serviceId ? { ...s, stylist_id: stylistId } : s));
-    } else {
-      const service = services.find(s => s.id === serviceId);
-      if (service) {
-        setSelectedServices([...selectedServices, { service_id: serviceId, stylist_id: stylistId, price: service.price }]);
-      }
-    }
-  };
+  // handleServiceChange removed in favor of addService/removeService/updateServiceStylist
 
   const handleProductChange = (productId: number) => {
     const exists = selectedProducts.find(p => p.product_id === productId);
@@ -67,60 +57,123 @@ export default function Sales() {
     fetchAll();
   };
 
+
+  const [productSearch, setProductSearch] = useState('');
+
+  const availableServices = services.filter(s => !selectedServices.find(ss => ss.service_id === s.id));
+  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()));
+
+  const addService = (serviceId: string) => {
+    if (!serviceId) return;
+    const sId = Number(serviceId);
+    const service = services.find(s => s.id === sId);
+    if (service) {
+      setSelectedServices([...selectedServices, { service_id: sId, stylist_id: stylists[0]?.id, price: service.price, name: service.name }]);
+    }
+  };
+
+  const removeService = (serviceId: number) => {
+    setSelectedServices(selectedServices.filter(s => s.service_id !== serviceId));
+  };
+
+  const updateServiceStylist = (serviceId: number, stylistId: number) => {
+    setSelectedServices(selectedServices.map(s => s.service_id === serviceId ? { ...s, stylist_id: stylistId } : s));
+  };
+
   return (
     <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">Sales</h1>
+      <h1 className="text-xl font-bold mb-6 text-purple-900 border-b-2 border-gold-500 inline-block">Record Sales</h1>
 
       {/* Client Selection */}
-      <div className="mb-4">
-        <select value={selectedClient || ''} onChange={e => setSelectedClient(Number(e.target.value))} className="border p-2">
-          <option value="">Select Client</option>
+      <div className="mb-6">
+        <label className="block text-gray-700 font-bold mb-2">Client</label>
+        <select value={selectedClient || ''} onChange={e => setSelectedClient(Number(e.target.value))} className="border p-2 rounded w-full max-w-md bg-white">
+          <option value="">-- Select Client --</option>
           {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
 
-      {/* Services Selection */}
-      <div className="mb-4">
-        <h2 className="font-semibold mb-2">Services</h2>
-        {services.map(service => (
-          <div key={service.id} className="flex items-center gap-2 mb-1">
-            <input
-              type="checkbox"
-              checked={!!selectedServices.find(s => s.service_id === service.id)}
-              onChange={e => handleServiceChange(service.id, selectedServices.find(s => s.service_id === service.id)?.stylist_id || stylists[0]?.id)}
-            />
-            <span>{service.name} (KES {service.price})</span>
-            {selectedServices.find(s => s.service_id === service.id) && (
-              <select
-                value={selectedServices.find(s => s.service_id === service.id)?.stylist_id || stylists[0]?.id}
-                onChange={e => handleServiceChange(service.id, Number(e.target.value))}
-                className="border p-1 ml-2"
-              >
-                {stylists.map(stylist => (
-                  <option key={stylist.id} value={stylist.id}>{stylist.name}</option>
-                ))}
-              </select>
-            )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Services Selection */}
+        <div className="bg-white p-4 rounded shadow border border-gray-100">
+          <h2 className="font-bold mb-4 text-purple-800 border-b pb-2">Services</h2>
+
+          <div className="mb-4">
+            <select
+              className="border p-2 rounded w-full mb-2 bg-gray-50"
+              onChange={(e) => addService(e.target.value)}
+              value=""
+            >
+              <option value="">+ Add Service...</option>
+              {availableServices.map(s => (
+                <option key={s.id} value={s.id}>{s.name} - KES {s.price}</option>
+              ))}
+            </select>
           </div>
-        ))}
+
+          <div className="space-y-3">
+            {selectedServices.map(item => (
+              <div key={item.service_id} className="flex flex-col p-3 bg-purple-50 rounded border border-purple-100">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-purple-900">{item.name}</span>
+                  <button onClick={() => removeService(item.service_id)} className="text-red-500 text-sm hover:text-red-700 font-medium">Remove</button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600">Stylist:</label>
+                  <select
+                    value={item.stylist_id}
+                    onChange={(e) => updateServiceStylist(item.service_id, Number(e.target.value))}
+                    className="border p-1 rounded text-sm bg-white flex-1"
+                  >
+                    {stylists.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            ))}
+            {selectedServices.length === 0 && <p className="text-gray-400 text-sm italic">No services selected</p>}
+          </div>
+        </div>
+
+        {/* Products Selection */}
+        <div className="bg-white p-4 rounded shadow border border-gray-100">
+          <h2 className="font-bold mb-4 text-purple-800 border-b pb-2">Products</h2>
+
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={productSearch}
+              onChange={e => setProductSearch(e.target.value)}
+              className="border p-2 rounded w-full bg-gray-50"
+            />
+          </div>
+
+          <div className="max-h-80 overflow-y-auto space-y-1 pr-2">
+            {filteredProducts.map(product => {
+              const isSelected = !!selectedProducts.find(p => p.product_id === product.id);
+              return (
+                <div key={product.id} className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${isSelected ? 'bg-gold-100 border-gold-300 border' : 'hover:bg-gray-50 border border-transparent'}`} onClick={() => handleProductChange(product.id)}>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => { }} // handled by div click
+                      className="pointer-events-none"
+                    />
+                    <span className={isSelected ? 'font-medium text-purple-900' : 'text-gray-700'}>{product.name}</span>
+                  </div>
+                  <span className="text-sm font-bold text-gray-500">KES {product.selling_price}</span>
+                </div>
+              );
+            })}
+            {filteredProducts.length === 0 && <p className="text-gray-400 text-sm text-center py-4">No products found</p>}
+          </div>
+        </div>
       </div>
 
-      {/* Products Selection */}
-      <div className="mb-4">
-        <h2 className="font-semibold mb-2">Products</h2>
-        {products.map(product => (
-          <div key={product.id} className="flex items-center gap-2 mb-1">
-            <input
-              type="checkbox"
-              checked={!!selectedProducts.find(p => p.product_id === product.id)}
-              onChange={() => handleProductChange(product.id)}
-            />
-            <span>{product.name} (KES {product.selling_price})</span>
-          </div>
-        ))}
+      <div className="mt-8 flex justify-end">
+        <button onClick={handleAddSale} className="btn-gold text-lg px-8 py-3 shadow-lg transform hover:scale-105 transition-transform">Complete Sale</button>
       </div>
-
-      <button onClick={handleAddSale} className="bg-green-500 text-white px-4 py-2 rounded">Add Sale</button>
 
       {/* Sales Table */}
       <div className="mt-6">
