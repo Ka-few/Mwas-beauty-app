@@ -4,7 +4,7 @@ import DataTable from '../components/tables/DataTable';
 
 export default function Stylists() {
   const [stylists, setStylists] = useState<any[]>([]);
-  const [form, setForm] = useState({ name: '', phone: '', is_active: true, commission_rate: 20 });
+  const [form, setForm] = useState({ name: '', phone: '', commission_rate: 20 });
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const fetchStylists = async () => {
@@ -20,7 +20,7 @@ export default function Stylists() {
     } else {
       await addStylist(form);
     }
-    setForm({ name: '', phone: '', is_active: true, commission_rate: 20 });
+    setForm({ name: '', phone: '', commission_rate: 20 });
     setEditingId(null);
     fetchStylists();
   };
@@ -29,7 +29,6 @@ export default function Stylists() {
     setForm({
       name: stylist.name,
       phone: stylist.phone,
-      is_active: !!stylist.is_active,
       commission_rate: stylist.commission_rate || 20
     });
     setEditingId(stylist.id);
@@ -43,7 +42,7 @@ export default function Stylists() {
   };
 
   const handleCancel = () => {
-    setForm({ name: '', phone: '', is_active: true, commission_rate: 20 });
+    setForm({ name: '', phone: '', commission_rate: 20 });
     setEditingId(null);
   };
 
@@ -54,9 +53,12 @@ export default function Stylists() {
       <div className="mb-6 flex gap-2 flex-wrap bg-white p-4 rounded shadow border border-gray-100">
         <input type="text" placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="border p-2 rounded" />
         <input type="text" placeholder="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="border p-2 rounded" />
-        <div className="flex items-center gap-1 border p-2 rounded bg-gray-50">
-          <label className="text-sm font-semibold text-gray-700">Comm %:</label>
-          <input type="number" value={form.commission_rate} onChange={e => setForm({ ...form, commission_rate: Number(e.target.value) })} className="w-16 bg-transparent outline-none border-b border-gray-300" />
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-500 ml-1">Commission %</label>
+          <div className="flex items-center gap-1 border p-2 rounded bg-gray-50">
+            <input type="number" value={form.commission_rate} onChange={e => setForm({ ...form, commission_rate: Number(e.target.value) })} className="w-16 bg-transparent outline-none border-b border-gray-300" />
+            <span className="text-gray-500">%</span>
+          </div>
         </div>
         <button onClick={handleSubmit} className="btn-purple">{editingId ? 'Update' : 'Add'}</button>
         {editingId && <button onClick={handleCancel} className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500 transition-colors">Cancel</button>}
@@ -64,7 +66,7 @@ export default function Stylists() {
       </div>
 
       <DataTable
-        columns={['name', 'phone', 'is_active', 'commission_rate']}
+        columns={['name', 'phone', 'commission_rate']}
         data={stylists}
         actions={(row: any) => (
           <div className="flex gap-2">

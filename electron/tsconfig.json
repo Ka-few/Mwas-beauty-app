@@ -1,12 +1,18 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ES2020",            // <--- important for import.meta
+    "module": "CommonJS", // <--- important for consistency
     "strict": true,
     "esModuleInterop": true,
     "moduleResolution": "node",
     "outDir": "./dist",
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "skipLibCheck": true
   },
-  "include": ["main.ts", "preload.ts"]
+  "include": [
+    "main.ts",
+    "preload.ts"
+  ]
 }

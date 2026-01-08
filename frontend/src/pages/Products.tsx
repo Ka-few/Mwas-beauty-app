@@ -4,7 +4,7 @@ import DataTable from '../components/tables/DataTable';
 
 export default function Products() {
   const [products, setProducts] = useState<any[]>([]);
-  const [form, setForm] = useState({ name: '', category: '', selling_price: 0, stock_quantity: 0 });
+  const [form, setForm] = useState({ name: '', category: '', cost_price: 0, selling_price: 0, stock_quantity: 0 });
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const fetchProducts = async () => {
@@ -20,7 +20,7 @@ export default function Products() {
     } else {
       await addProduct(form);
     }
-    setForm({ name: '', category: '', selling_price: 0, stock_quantity: 0 });
+    setForm({ name: '', category: '', cost_price: 0, selling_price: 0, stock_quantity: 0 });
     setEditingId(null);
     fetchProducts();
   };
@@ -29,6 +29,7 @@ export default function Products() {
     setForm({
       name: product.name,
       category: product.category,
+      cost_price: product.cost_price,
       selling_price: product.selling_price,
       stock_quantity: product.stock_quantity
     });
@@ -43,7 +44,7 @@ export default function Products() {
   };
 
   const handleCancel = () => {
-    setForm({ name: '', category: '', selling_price: 0, stock_quantity: 0 });
+    setForm({ name: '', category: '', cost_price: 0, selling_price: 0, stock_quantity: 0 });
     setEditingId(null);
   };
 
@@ -54,15 +55,28 @@ export default function Products() {
       <div className="mb-6 flex gap-2 flex-wrap bg-white p-4 rounded shadow border border-gray-100">
         <input type="text" placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="border p-2 rounded" />
         <input type="text" placeholder="Category" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="border p-2 rounded" />
-        <input type="number" placeholder="Selling Price" value={form.selling_price} onChange={e => setForm({ ...form, selling_price: Number(e.target.value) })} className="border p-2 rounded" />
-        <input type="number" placeholder="Stock Qty" value={form.stock_quantity} onChange={e => setForm({ ...form, stock_quantity: Number(e.target.value) })} className="border p-2 rounded" />
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-500 ml-1">Cost Price</label>
+          <input type="number" placeholder="Cost Price" value={form.cost_price} onChange={e => setForm({ ...form, cost_price: Number(e.target.value) })} className="border p-2 rounded" />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-500 ml-1">Selling Price</label>
+          <input type="number" placeholder="Selling Price" value={form.selling_price} onChange={e => setForm({ ...form, selling_price: Number(e.target.value) })} className="border p-2 rounded" />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-500 ml-1">Stock</label>
+          <input type="number" placeholder="Stock Qty" value={form.stock_quantity} onChange={e => setForm({ ...form, stock_quantity: Number(e.target.value) })} className="border p-2 rounded" />
+        </div>
         <button onClick={handleSubmit} className="btn-purple">{editingId ? 'Update' : 'Add'}</button>
         {editingId && <button onClick={handleCancel} className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500 transition-colors">Cancel</button>}
       </div>
 
       <DataTable
-        columns={['name', 'category', 'selling_price', 'stock_quantity']}
-        data={products}
+        columns={['name', 'category', 'cost_price', 'selling_price', 'profit', 'stock_quantity']}
+        data={products.map(p => ({
+          ...p,
+          profit: (p.selling_price - p.cost_price).toFixed(2)
+        }))}
         actions={(row: any) => (
           <div className="flex gap-2">
             <button onClick={() => handleEdit(row)} className="text-gold-600 font-medium hover:text-gold-700">Edit</button>

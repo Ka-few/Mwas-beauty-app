@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Clients from './pages/Clients';
 import Stylists from './pages/Stylists';
 import Services from './pages/Services';
@@ -29,12 +29,13 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
 function Sidebar() {
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : null;
+  const navigate = useNavigate();
 
   if (!user) return null;
 
   const handleLogout = () => {
     localStorage.removeItem('user');
-    window.location.href = '/login';
+    navigate('/login');
   };
 
   return (

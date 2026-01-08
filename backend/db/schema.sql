@@ -7,6 +7,9 @@ role TEXT NOT NULL,
 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Default Admin User
+INSERT OR IGNORE INTO users (username, password_hash, role) VALUES ('admin', 'admin123', 'admin');
+
 
 -- Clients Table
 CREATE TABLE IF NOT EXISTS clients (
@@ -23,6 +26,7 @@ CREATE TABLE IF NOT EXISTS stylists (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 name TEXT NOT NULL,
 phone TEXT,
+commission_rate REAL DEFAULT 20.0,
 is_active BOOLEAN DEFAULT 1,
 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

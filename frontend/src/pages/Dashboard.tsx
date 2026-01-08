@@ -98,7 +98,8 @@ export default function Dashboard() {
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-purple-900">{p.units_sold} Sold</p>
-                  <p className="text-xs text-gray-500">Rev: KES {p.total_revenue.toLocaleString()}</p>
+                  <p className="text-xs text-green-600 font-medium">Profit: KES {p.total_profit.toLocaleString()}</p>
+                  <p className="text-xs text-gray-400">Rev: KES {p.total_revenue.toLocaleString()}</p>
                 </div>
               </div>
             ))}

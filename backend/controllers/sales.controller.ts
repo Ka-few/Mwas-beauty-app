@@ -95,11 +95,12 @@ export async function getAnalytics(req: Request, res: Response) {
         p.name, 
         p.stock_quantity,
         COALESCE(SUM(sp.quantity), 0) as units_sold,
-        COALESCE(SUM(sp.selling_price * sp.quantity), 0) as total_revenue
+        COALESCE(SUM(sp.selling_price * sp.quantity), 0) as total_revenue,
+        COALESCE(SUM((sp.selling_price - COALESCE(p.cost_price, 0)) * sp.quantity), 0) as total_profit
       FROM products p
       LEFT JOIN sale_products sp ON p.id = sp.product_id
       GROUP BY p.id
-      ORDER BY units_sold DESC
+      ORDER BY total_profit DESC
       LIMIT 10
     `);
 
@@ -147,13 +148,27 @@ export async function getReports(req: Request, res: Response) {
     const totalCommissions = serviceFinancials.total_commissions;
     const serviceNetIncome = grossServiceRevenue - totalCommissions;
 
+    // 4. Daily Commissions Per Stylist (for Today)
+    const dailyCommissions = await db.all(`
+      SELECT 
+        s.name,
+        COALESCE(SUM(ss.price * (COALESCE(s.commission_rate, 20) / 100.0)), 0) as commission
+      FROM stylists s
+      JOIN sale_services ss ON s.id = ss.stylist_id
+      JOIN sales sa ON ss.sale_id = sa.id
+      WHERE date(sa.created_at) = date('now', 'localtime')
+      GROUP BY s.id
+      HAVING commission > 0
+    `);
+
     res.json({
       totalRevenue,
       productProfit,
       grossServiceRevenue,
       totalCommissions,
       serviceNetIncome,
-      totalNetIncome: productProfit + serviceNetIncome
+      totalNetIncome: productProfit + serviceNetIncome,
+      dailyCommissions
     });
 
   } catch (error) {

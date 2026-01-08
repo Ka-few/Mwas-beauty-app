@@ -2,8 +2,7 @@
   "name": "mwas-beauty",
   "version": "1.0.0",
   "private": true,
-  "main": "electron/main.js",
-
+  "main": "electron/dist/main.js",
   "dependencies": {
     "axios": "^1.13.2",
     "cors": "^2.8.5",
@@ -15,62 +14,64 @@
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7"
   },
-
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/node": "^20.19.27",
+    "@types/node": "^18.19.130",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/sqlite3": "^3.1.11",
     "concurrently": "^9.2.1",
-    "electron": "^39.2.7",
+    "electron": "^33.2.1",
     "electron-builder": "^26.0.12",
+    "esbuild": "^0.27.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "wait-on": "^9.0.3"
   },
-
   "scripts": {
     "backend:dev": "cd backend && ts-node server.ts",
     "frontend:dev": "cd frontend && npx vite --port 3000",
-
     "electron:build": "tsc -p electron",
     "backend:build": "tsc -p backend",
+    "backend:bundle": "esbuild backend/server.ts --bundle --platform=node --target=node20 --external:sqlite3 --outfile=backend/dist/server.bundle.js --format=cjs",
     "frontend:build": "cd frontend && npm run build",
-
     "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\" \"wait-on http://localhost:3000 && ELECTRON_START_URL=http://localhost:3000 electron -r ts-node/register electron/main.ts\"",
-
-    "build": "npm run frontend:build && npm run backend:build && npm run electron:build",
+    "build": "npm run frontend:build && npm run backend:build && npm run backend:bundle && npm run electron:build",
     "dist": "npm run build && electron-builder"
   },
-
   "build": {
     "appId": "com.mwas.desktop",
     "productName": "MwasBeauty",
-
+    "asar": true,
+    "asarUnpack": [
+      "backend/dist/**/*",
+      "backend/db/schema.sql",
+      "node_modules/sqlite3/**/*",
+      "node_modules/bindings/**/*",
+      "node_modules/file-uri-to-path/**/*"
+    ],
     "directories": {
       "buildResources": "assets",
       "output": "dist"
     },
-
     "files": [
       "backend/**/*",
-      "frontend/build/**/*",
+      "frontend/dist/**/*",
       "electron/**/*",
       "package.json"
     ],
-
     "win": {
-      "icon": "assets/icon.ico",
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64", "ia32"]
+          "arch": [
+            "x64",
+            "ia32"
+          ]
         }
       ]
     },
-
     "nsis": {
       "oneClick": false,
       "perMachine": true,
@@ -80,11 +81,9 @@
       "createStartMenuShortcut": true,
       "shortcutName": "MwasBeauty"
     },
-
     "mac": {
       "target": "dmg"
     },
-
     "linux": {
       "target": "AppImage"
     }

@@ -37,17 +37,10 @@ export default function Reports() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
                 {/* Product Profitability */}
                 <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
                     <h2 className="text-xl font-bold mb-4 text-purple-900 border-b pb-2">Products Profitability</h2>
-                    <div className="flex justify-between items-end mb-2">
-                        <div>
-                            <p className="text-gray-600 text-sm">Revenue from Products</p>
-                            {/* Note: Calculated roughly as Total Revenue - Gross Service Revenue for simplicity validation, strictly it comes from its own sum */}
-                        </div>
-                    </div>
                     <div className="bg-gray-50 p-4 rounded-lg">
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-gray-700 font-medium">Product Profit (Revenue - Cost)</span>
@@ -74,6 +67,31 @@ export default function Reports() {
                             <span className="text-xl font-bold text-purple-900">KES {reports.serviceNetIncome.toLocaleString()}</span>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Daily Payouts / Commissions */}
+            <div className="bg-white p-8 rounded-xl shadow-md border-t-4 border-gold-500">
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 className="text-2xl font-bold text-purple-900">Today's Stylist Payouts</h2>
+                        <p className="text-gray-500 italic">Expected commissions to be paid out by end of day ({new Date().toLocaleDateString()})</p>
+                    </div>
+                    <div className="bg-purple-100 px-4 py-2 rounded-full text-purple-800 font-bold">
+                        Total Today: KES {reports.dailyCommissions.reduce((sum: number, c: any) => sum + c.commission, 0).toLocaleString()}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {reports.dailyCommissions.map((c: any) => (
+                        <div key={c.name} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gold-300 transition-colors">
+                            <span className="font-bold text-gray-700">{c.name}</span>
+                            <span className="text-lg font-bold text-purple-700">KES {c.commission.toLocaleString()}</span>
+                        </div>
+                    ))}
+                    {reports.dailyCommissions.length === 0 && (
+                        <p className="text-gray-400 italic col-span-full py-4 text-center bg-gray-50 rounded">No service sales recorded for today yet.</p>
+                    )}
                 </div>
             </div>
         </div>
