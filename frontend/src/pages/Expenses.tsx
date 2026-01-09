@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useToast } from '../components/ui/Toast';
 import { getExpenses, addExpense, deleteExpense } from '../services/expenses.api';
 
 const EXPENSE_CATEGORIES = [
@@ -14,6 +15,7 @@ const EXPENSE_CATEGORIES = [
 ];
 
 export default function Expenses() {
+    const { showToast } = useToast();
     const [expenses, setExpenses] = useState<any[]>([]);
     const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
     const [amount, setAmount] = useState('');
@@ -28,9 +30,19 @@ export default function Expenses() {
         fetchExpenses();
     }, []);
 
+
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!amount || !date) return;
+
+        if (!amount || Number(amount) <= 0) {
+            showToast('Please enter a valid positive amount', 'error');
+            return;
+        }
+        if (!date) {
+            showToast('Please select a date', 'error');
+            return;
+        }
 
         try {
             await addExpense({
@@ -42,10 +54,10 @@ export default function Expenses() {
             setAmount('');
             setDescription('');
             fetchExpenses();
-            alert('Expense recorded successfully');
+            showToast('Expense recorded successfully', 'success');
         } catch (error) {
             console.error(error);
-            alert('Failed to record expense');
+            showToast('Failed to record expense', 'error');
         }
     };
 
@@ -54,9 +66,10 @@ export default function Expenses() {
             try {
                 await deleteExpense(id);
                 fetchExpenses();
+                showToast('Expense deleted', 'success');
             } catch (error) {
                 console.error(error);
-                alert('Failed to delete expense');
+                showToast('Failed to delete expense', 'error');
             }
         }
     };

@@ -1,28 +1,51 @@
 import { useEffect, useState } from 'react';
+import { useToast } from '../components/ui/Toast';
 import { getProducts, addProduct, updateProduct, deleteProduct } from '../services/products.api';
 import DataTable from '../components/tables/DataTable';
 
 export default function Products() {
+  const { showToast } = useToast();
   const [products, setProducts] = useState<any[]>([]);
   const [form, setForm] = useState({ name: '', category: '', cost_price: 0, selling_price: 0, stock_quantity: 0 });
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const fetchProducts = async () => {
-    const data = await getProducts();
-    setProducts(data);
+    try {
+      const data = await getProducts();
+      setProducts(data);
+    } catch (error) {
+      console.error(error);
+      showToast('Failed to load products', 'error');
+    }
   };
 
   useEffect(() => { fetchProducts(); }, []);
 
   const handleSubmit = async () => {
-    if (editingId) {
-      await updateProduct(editingId, form);
-    } else {
-      await addProduct(form);
+    if (!form.name) {
+      showToast('Product name is required', 'error');
+      return;
     }
-    setForm({ name: '', category: '', cost_price: 0, selling_price: 0, stock_quantity: 0 });
-    setEditingId(null);
-    fetchProducts();
+    if (form.selling_price < 0 || form.cost_price < 0) {
+      showToast('Prices cannot be negative', 'error');
+      return;
+    }
+
+    try {
+      if (editingId) {
+        await updateProduct(editingId, form);
+        showToast('Product updated successfully', 'success');
+      } else {
+        await addProduct(form);
+        showToast('Product added successfully', 'success');
+      }
+      setForm({ name: '', category: '', cost_price: 0, selling_price: 0, stock_quantity: 0 });
+      setEditingId(null);
+      fetchProducts();
+    } catch (error) {
+      console.error(error);
+      showToast('Failed to save product', 'error');
+    }
   };
 
   const handleEdit = (product: any) => {
@@ -38,8 +61,14 @@ export default function Products() {
 
   const handleDelete = async (id: number) => {
     if (confirm('Delete product?')) {
-      await deleteProduct(id);
-      fetchProducts();
+      try {
+        await deleteProduct(id);
+        showToast('Product deleted', 'success');
+        fetchProducts();
+      } catch (error) {
+        console.error(error);
+        showToast('Failed to delete product', 'error');
+      }
     }
   };
 

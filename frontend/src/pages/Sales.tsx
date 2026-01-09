@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useToast } from '../components/ui/Toast';
 import { getSales, addSale } from '../services/sales.api';
 import { getClients } from '../services/clients.api';
 import { getServices } from '../services/services.api';
@@ -7,6 +8,7 @@ import { getStylists } from '../services/stylists.api';
 import DataTable from '../components/tables/DataTable';
 
 export default function Sales() {
+  const { showToast } = useToast();
   const [sales, setSales] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
@@ -39,6 +41,10 @@ export default function Sales() {
     }
   };
 
+
+
+  // ... existing code ...
+
   const updateProductQuantity = (productId: number, newQuantity: number) => {
     if (newQuantity < 1) return;
     const product = products.find(p => p.id === productId);
@@ -46,7 +52,7 @@ export default function Sales() {
 
     // Optional: Check stock limit
     if (newQuantity > product.stock_quantity) {
-      alert(`Only ${product.stock_quantity} items in stock!`);
+      showToast(`Only ${product.stock_quantity} items in stock!`, 'error');
       return;
     }
 
@@ -57,7 +63,12 @@ export default function Sales() {
 
   const handleAddSale = async () => {
     if (!selectedClient) {
-      alert('Please select a client');
+      showToast('Please select a client', 'error');
+      return;
+    }
+
+    if (selectedServices.length === 0 && selectedProducts.length === 0) {
+      showToast('Please select at least one service or product', 'error');
       return;
     }
 
@@ -78,6 +89,8 @@ export default function Sales() {
       // Refresh data
       fetchAll();
 
+      showToast('Sale completed successfully!', 'success');
+
       // Ask to print receipt
       if (confirm('Sale recorded! Do you want to print the receipt?')) {
         printReceipt(response.sale_id, response.totalAmount, selectedServices, selectedProducts, paymentMethod);
@@ -85,7 +98,7 @@ export default function Sales() {
 
     } catch (error) {
       console.error("Sale Error", error);
-      alert('Failed to record sale.');
+      showToast('Failed to record sale.', 'error');
     }
   };
 

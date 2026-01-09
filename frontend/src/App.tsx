@@ -191,10 +191,14 @@ function Layout() {
   );
 }
 
+import { ToastProvider } from './components/ui/Toast';
+
 export default function App() {
   return (
     <Router>
-      <Layout />
+      <ToastProvider>
+        <Layout />
+      </ToastProvider>
     </Router>
   );
 }

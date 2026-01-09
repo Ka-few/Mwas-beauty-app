@@ -10,6 +10,11 @@ export async function getProducts(req: Request, res: Response) {
 
 export async function addProduct(req: Request, res: Response) {
   const { name, category, cost_price, selling_price, stock_quantity, reorder_level } = req.body;
+  if (!name || !selling_price || selling_price < 0) {
+    res.status(400).json({ message: 'Invalid product data' });
+    return;
+  }
+
   const db = await initializeDB();
   const result = await db.run(
     'INSERT INTO products (name, category, cost_price, selling_price, stock_quantity, reorder_level) VALUES (?, ?, ?, ?, ?, ?)',

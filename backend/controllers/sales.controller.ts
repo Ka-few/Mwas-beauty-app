@@ -13,6 +13,16 @@ export async function addSale(req: Request, res: Response) {
   // services: [{service_id, stylist_id, price}]
   // products: [{product_id, quantity, selling_price}]
 
+  if (!client_id && client_id !== 0) {
+    res.status(400).json({ message: 'Client is required' });
+    return;
+  }
+
+  if ((!services || services.length === 0) && (!products || products.length === 0)) {
+    res.status(400).json({ message: 'Sale must include services or products' });
+    return;
+  }
+
   const db = await initializeDB();
   try {
     await db.run('BEGIN TRANSACTION');
