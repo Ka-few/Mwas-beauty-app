@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Reports from './pages/Reports';
 import Login from './pages/Login';
 import Users from './pages/Users';
+import Expenses from './pages/Expenses';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const userStr = localStorage.getItem('user');
@@ -93,6 +94,13 @@ function Sidebar() {
           )}
           {user.role === 'admin' && (
             <li>
+              <Link to="/expenses" className="block p-3 rounded hover:bg-purple-800 hover:text-gold-400 transition-colors">
+                Expenses
+              </Link>
+            </li>
+          )}
+          {user.role === 'admin' && (
+            <li>
               <Link to="/users" className="block p-3 rounded hover:bg-purple-800 hover:text-gold-400 transition-colors">
                 Users
               </Link>
@@ -163,6 +171,12 @@ function Layout() {
           <Route path="/reports" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <Reports />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/expenses" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Expenses />
             </ProtectedRoute>
           } />
 

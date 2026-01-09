@@ -88,3 +88,13 @@ selling_price REAL NOT NULL,
 FOREIGN KEY (sale_id) REFERENCES sales(id),
 FOREIGN KEY (product_id) REFERENCES products(id)
 );
+
+-- Expenses Table
+CREATE TABLE IF NOT EXISTS expenses (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+category TEXT NOT NULL,
+amount REAL NOT NULL,
+date DATE NOT NULL,
+description TEXT,
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

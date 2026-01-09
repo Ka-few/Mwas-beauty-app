@@ -50,9 +50,24 @@ function startBackend() {
 }
 
 function createWindow() {
+  const iconPath = path.join(__dirname, '../../assets/vecteezy_beauty-salon-logo-vector-icon-design-template-vector_24720789.ico');
+
+  const splash = new BrowserWindow({
+    width: 500,
+    height: 300,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    icon: iconPath
+  });
+
+  splash.loadFile(path.join(__dirname, 'splash.html'));
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
+    show: false, // Don't show immediately
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -65,14 +80,21 @@ function createWindow() {
     win.webContents.openDevTools();
   } else {
     win.loadFile(path.join(__dirname, '../../frontend/dist/index.html'));
-    win.webContents.openDevTools(); // Temporary for debugging
+    // win.webContents.openDevTools(); // Removed for production
   }
+
+  // Wait for content to finish loading or a set time before showing main window
+  win.once('ready-to-show', () => {
+    setTimeout(() => {
+      splash.destroy();
+      win.show();
+    }, 2500); // Show splash for at least 2.5 seconds
+  });
 }
 
 app.whenReady().then(() => {
   startBackend();
-  // Give backend a moment to start
-  setTimeout(createWindow, 2000);
+  createWindow();
 });
 
 app.on('window-all-closed', () => {

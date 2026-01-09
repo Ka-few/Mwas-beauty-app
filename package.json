@@ -1,6 +1,8 @@
 {
   "name": "mwas-beauty",
   "version": "1.0.0",
+  "description": "Beauty Salon Management System",
+  "author": "Njoroge",
   "private": true,
   "main": "electron/dist/main.js",
   "dependencies": {
@@ -62,6 +64,7 @@
       "package.json"
     ],
     "win": {
+      "icon": "assets/vecteezy_beauty-salon-logo-vector-icon-design-template-vector_24720789.ico",
       "target": [
         {
           "target": "nsis",
@@ -85,6 +88,7 @@
       "target": "dmg"
     },
     "linux": {
+      "icon": "assets/icon.png",
       "target": "AppImage"
     }
   }

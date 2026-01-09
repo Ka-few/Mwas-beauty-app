@@ -121,54 +121,164 @@ export async function getAnalytics(req: Request, res: Response) {
 }
 
 export async function getReports(req: Request, res: Response) {
+  const { startDate, endDate } = req.query;
   const db = await initializeDB();
+
   try {
-    // 1. Total Sales Revenue
-    const revenueResult = await db.get('SELECT COALESCE(SUM(total_amount), 0) as total FROM sales');
+    let dateFilter = "";
+    const params: any[] = [];
+
+    if (startDate && endDate) {
+      dateFilter = "WHERE date(sales.created_at) BETWEEN ? AND ?";
+      params.push(startDate, endDate);
+    }
+
+    // 1. Overall Totals (Filtered)
+    const revenueResult = await db.get(`
+            SELECT COALESCE(SUM(total_amount), 0) as total 
+            FROM sales 
+            ${dateFilter}
+        `, ...params);
+
     const totalRevenue = revenueResult.total;
 
-    // 2. Product Profit: (Selling Price - Cost Price) * Quantity
+    // 2. Product Profit
+    // Need to join sales to filter by date
     const productProfitResult = await db.get(`
-      SELECT COALESCE(SUM((sp.selling_price - COALESCE(p.cost_price, 0)) * sp.quantity), 0) as profit
-      FROM sale_products sp
-      JOIN products p ON sp.product_id = p.id
-    `);
+            SELECT COALESCE(SUM((sp.selling_price - COALESCE(p.cost_price, 0)) * sp.quantity), 0) as profit
+            FROM sale_products sp
+            JOIN products p ON sp.product_id = p.id
+            JOIN sales ON sp.sale_id = sales.id
+            ${dateFilter}
+        `, ...params);
     const productProfit = productProfitResult.profit;
 
     // 3. Service Financials
     const serviceFinancials = await db.get(`
-      SELECT 
-        COALESCE(SUM(ss.price), 0) as gross_service_revenue,
-        COALESCE(SUM(ss.price * (COALESCE(s.commission_rate, 20) / 100.0)), 0) as total_commissions
-      FROM sale_services ss
-      JOIN stylists s ON ss.stylist_id = s.id
-    `);
+            SELECT 
+                COALESCE(SUM(ss.price), 0) as gross_service_revenue,
+                COALESCE(SUM(ss.price * (COALESCE(s.commission_rate, 20) / 100.0)), 0) as total_commissions
+            FROM sale_services ss
+            JOIN stylists s ON ss.stylist_id = s.id
+            JOIN sales ON ss.sale_id = sales.id
+            ${dateFilter}
+        `, ...params);
 
     const grossServiceRevenue = serviceFinancials.gross_service_revenue;
     const totalCommissions = serviceFinancials.total_commissions;
     const serviceNetIncome = grossServiceRevenue - totalCommissions;
 
-    // 4. Daily Commissions Per Stylist (for Today)
+    // 4. Daily Breakdown
+    // Group by Date
+    const dailyReports = await db.all(`
+            SELECT 
+                date(sales.created_at) as date,
+                COALESCE(SUM(sales.total_amount), 0) as gross_revenue,
+                
+                -- Product Profit for this day
+                (SELECT COALESCE(SUM((sp2.selling_price - COALESCE(p2.cost_price, 0)) * sp2.quantity), 0)
+                 FROM sale_products sp2
+                 JOIN products p2 ON sp2.product_id = p2.id
+                 JOIN sales s2 ON sp2.sale_id = s2.id
+                 WHERE date(s2.created_at) = date(sales.created_at)
+                ) as product_profit,
+
+                -- Commissions for this day
+                (SELECT COALESCE(SUM(ss2.price * (COALESCE(st2.commission_rate, 20) / 100.0)), 0)
+                 FROM sale_services ss2
+                 JOIN stylists st2 ON ss2.stylist_id = st2.id
+                 JOIN sales s3 ON ss2.sale_id = s3.id
+                 WHERE date(s3.created_at) = date(sales.created_at)
+                ) as daily_commissions
+
+            FROM sales
+            ${dateFilter}
+            GROUP BY date(sales.created_at)
+            ORDER BY date(sales.created_at) DESC
+        `, ...params);
+
+    // Calculate net income for each day in JS to simplify SQL
+    const dailyReportsWithNet = dailyReports.map(day => {
+      return day;
+    });
+
+    // Let's fetch Service Revenue per day to be precise
+    const dailyServices = await db.all(`
+            SELECT 
+                date(sales.created_at) as date,
+                COALESCE(SUM(ss.price), 0) as service_revenue
+            FROM sale_services ss
+            JOIN sales ON ss.sale_id = sales.id
+            ${dateFilter}
+            GROUP BY date(sales.created_at)
+        `, ...params);
+
+    const serviceRevMap = new Map(dailyServices.map(d => [d.date, d.service_revenue]));
+
+    // Fetch Expenses grouped by day
+    let expenseFilter = "";
+    const expenseParams: any[] = [];
+    if (startDate && endDate) {
+      expenseFilter = "WHERE date BETWEEN ? AND ?";
+      expenseParams.push(startDate, endDate);
+    }
+
+    const dailyExpenses = await db.all(`
+            SELECT date, COALESCE(SUM(amount), 0) as total_expense
+            FROM expenses
+            ${expenseFilter}
+            GROUP BY date
+        `, ...expenseParams);
+
+    const expenseMap = new Map(dailyExpenses.map(d => [d.date, d.total_expense]));
+
+    // Total Expenses
+    const totalExpensesResult = await db.get(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses ${expenseFilter}`, ...expenseParams);
+    const totalExpenses = totalExpensesResult.total;
+
+
+    const finalDailyReports = dailyReports.map(day => {
+      const serviceRevenue = serviceRevMap.get(day.date) || 0;
+      const expense = expenseMap.get(day.date) || 0;
+
+      const serviceNet = serviceRevenue - day.daily_commissions;
+      const totalNet = serviceNet + day.product_profit - expense;
+
+      return {
+        date: day.date,
+        grossRevenue: day.gross_revenue,
+        productProfit: day.product_profit,
+        commissions: day.daily_commissions,
+        expenses: expense,
+        netIncome: totalNet
+      };
+    });
+
+    // 5. Daily Commissions (Today) - Keep existing functionality just in case
     const dailyCommissions = await db.all(`
-      SELECT 
-        s.name,
-        COALESCE(SUM(ss.price * (COALESCE(s.commission_rate, 20) / 100.0)), 0) as commission
-      FROM stylists s
-      JOIN sale_services ss ON s.id = ss.stylist_id
-      JOIN sales sa ON ss.sale_id = sa.id
-      WHERE date(sa.created_at) = date('now', 'localtime')
-      GROUP BY s.id
-      HAVING commission > 0
-    `);
+            SELECT 
+                s.name,
+                COALESCE(SUM(ss.price * (COALESCE(s.commission_rate, 20) / 100.0)), 0) as commission
+            FROM stylists s
+            JOIN sale_services ss ON s.id = ss.stylist_id
+            JOIN sales sa ON ss.sale_id = sa.id
+            WHERE date(sa.created_at) = date('now', 'localtime')
+            GROUP BY s.id
+            HAVING commission > 0
+        `);
 
     res.json({
-      totalRevenue,
-      productProfit,
-      grossServiceRevenue,
-      totalCommissions,
-      serviceNetIncome,
-      totalNetIncome: productProfit + serviceNetIncome,
-      dailyCommissions
+      summary: {
+        totalRevenue,
+        productProfit,
+        grossServiceRevenue,
+        totalCommissions,
+        serviceNetIncome,
+        totalExpenses,
+        totalNetIncome: productProfit + serviceNetIncome - totalExpenses
+      },
+      daily: finalDailyReports,
+      todayCommissions: dailyCommissions
     });
 
   } catch (error) {
