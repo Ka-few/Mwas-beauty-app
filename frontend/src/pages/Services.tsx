@@ -6,10 +6,23 @@ export default function Services() {
   const [services, setServices] = useState<any[]>([]);
   const [form, setForm] = useState({ name: '', price: 0, duration_minutes: 0 });
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchServices = async () => {
-    const data = await getServices();
-    setServices(data);
+    try {
+      const data = await getServices();
+      if (Array.isArray(data)) {
+        setServices(data);
+        setError(null);
+      } else {
+        setServices([]);
+        setError('Received invalid data');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to load services');
+      setServices([]);
+    }
   };
 
   useEffect(() => { fetchServices(); }, []);
@@ -49,6 +62,7 @@ export default function Services() {
   return (
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4 text-purple-900 border-b-2 border-gold-500 inline-block">Services</h1>
+      {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
 
       <div className="mb-6 flex gap-2 flex-wrap bg-white p-4 rounded shadow border border-gray-100">
         <input type="text" placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="border p-2 rounded" />

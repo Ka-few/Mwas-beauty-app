@@ -25,7 +25,7 @@
     "@types/sqlite3": "^3.1.11",
     "concurrently": "^9.2.1",
     "electron": "^33.2.1",
-    "electron-builder": "^26.0.12",
+    "electron-builder": "^26.4.0",
     "esbuild": "^0.27.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
@@ -64,7 +64,7 @@
       "package.json"
     ],
     "win": {
-      "icon": "assets/vecteezy_beauty-salon-logo-vector-icon-design-template-vector_24720789.ico",
+      "icon": "assets/icon.ico",
       "target": [
         {
           "target": "nsis",

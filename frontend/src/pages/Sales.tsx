@@ -20,11 +20,25 @@ export default function Sales() {
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'MPESA'>('CASH');
 
   const fetchAll = async () => {
-    setSales(await getSales());
-    setClients(await getClients());
-    setServices(await getServices());
-    setProducts(await getProducts());
-    setStylists(await getStylists());
+    try {
+      const [salesData, clientsData, servicesData, productsData, stylistsData] = await Promise.all([
+        getSales().catch(err => { console.error('Sales fetch error', err); return []; }),
+        getClients().catch(err => { console.error('Clients fetch error', err); return []; }),
+        getServices().catch(err => { console.error('Services fetch error', err); return []; }),
+        getProducts().catch(err => { console.error('Products fetch error', err); return []; }),
+        getStylists().catch(err => { console.error('Stylists fetch error', err); return []; })
+      ]);
+
+      setSales(Array.isArray(salesData) ? salesData : []);
+      setClients(Array.isArray(clientsData) ? clientsData : []);
+      setServices(Array.isArray(servicesData) ? servicesData : []);
+      setProducts(Array.isArray(productsData) ? productsData : []);
+      setStylists(Array.isArray(stylistsData) ? stylistsData : []);
+
+    } catch (error) {
+      console.error("Critical error loading sales data", error);
+      showToast('Failed to load some data modules. Check connection.', 'error');
+    }
   };
 
   useEffect(() => { fetchAll(); }, []);

@@ -6,10 +6,23 @@ export default function Stylists() {
   const [stylists, setStylists] = useState<any[]>([]);
   const [form, setForm] = useState({ name: '', phone: '', commission_rate: 20 });
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchStylists = async () => {
-    const data = await getStylists();
-    setStylists(data);
+    try {
+      const data = await getStylists();
+      if (Array.isArray(data)) {
+        setStylists(data);
+        setError(null);
+      } else {
+        setStylists([]);
+        setError('Received invalid data');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to load stylists');
+      setStylists([]);
+    }
   };
 
   useEffect(() => { fetchStylists(); }, []);
@@ -49,6 +62,7 @@ export default function Stylists() {
   return (
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4 text-purple-900 border-b-2 border-gold-500 inline-block">Stylists</h1>
+      {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
 
       <div className="mb-6 flex gap-2 flex-wrap bg-white p-4 rounded shadow border border-gray-100">
         <input type="text" placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="border p-2 rounded" />

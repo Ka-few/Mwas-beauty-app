@@ -12,9 +12,16 @@ export default function Products() {
   const fetchProducts = async () => {
     try {
       const data = await getProducts();
-      setProducts(data);
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else {
+        console.error('Invalid products data', data);
+        setProducts([]);
+        showToast('Received invalid data from server', 'error');
+      }
     } catch (error) {
       console.error(error);
+      setProducts([]); // Clear state on error
       showToast('Failed to load products', 'error');
     }
   };

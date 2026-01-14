@@ -1,4 +1,5 @@
 import { HashRouter as Router, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import logo from './assets/logo.png';
 import Clients from './pages/Clients';
 import Stylists from './pages/Stylists';
 import Services from './pages/Services';
@@ -40,9 +41,10 @@ function Sidebar() {
   };
 
   return (
-    <nav className="w-64 h-screen bg-purple-900 p-4 text-purple-100 flex flex-col justify-between shadow-xl">
+    <nav className="w-64 min-h-screen bg-purple-900 p-4 text-purple-100 flex flex-col justify-between shadow-xl">
       <div>
         <div className="mb-8 p-2 text-center border-b border-purple-800 pb-4">
+          <img src={logo} alt="Mwas Beauty" className="w-24 h-24 mx-auto rounded-full mb-3 border-4 border-gold-500 shadow-lg object-cover" />
           <h1 className="text-2xl font-bold text-gold-500 tracking-wider">MWAS BEAUTY</h1>
           <p className="text-xs text-purple-300 mt-2 uppercase">{user.role}</p>
         </div>

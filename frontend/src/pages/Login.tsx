@@ -14,8 +14,16 @@ export default function Login() {
             const user = await login({ username, password });
             localStorage.setItem('user', JSON.stringify(user));
             navigate('/');
-        } catch (err) {
-            setError('Invalid credentials');
+        } catch (err: any) {
+            console.error('Login error:', err);
+            // detailed error for debugging
+            if (err.response && err.response.data && err.response.data.message) {
+                setError(`Login Failed: ${err.response.data.message}`);
+            } else if (err.message) {
+                setError(`Network/System Error: ${err.message}`);
+            } else {
+                setError('Invalid credentials or Server Error');
+            }
         }
     };
 

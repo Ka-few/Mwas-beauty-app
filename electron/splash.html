@@ -1,52 +1,131 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mwas Beauty</title>
   <style>
     body {
-      background-color: #581c87;
-      /* purple-900 */
+      background: linear-gradient(135deg, #2e1065 0%, #000000 100%);
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       height: 100vh;
       margin: 0;
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       color: #fbbf24;
-      /* gold-400 */
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .container {
+      text-align: center;
+      animation: fadeIn 0.8s ease-out;
+    }
+
+    .logo-container {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 20px;
+      position: relative;
+    }
+
+    .logo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 50%;
+      border: 3px solid #fbbf24;
+      box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+      background-color: #2e1065;
     }
 
     h1 {
-      font-size: 2.5rem;
-      margin-bottom: 10px;
+      font-size: 2rem;
+      margin: 0;
+      font-weight: 300;
+      letter-spacing: 4px;
+      background: linear-gradient(to right, #fbbf24, #f59e0b);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
     }
 
-    .loader {
-      border: 5px solid #f3f3f3;
-      border-top: 5px solid #fbbf24;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
+    p {
+      font-size: 0.9rem;
+      color: #a78bfa;
+      margin-top: 5px;
+      letter-spacing: 1px;
+      opacity: 0.8;
     }
 
-    @keyframes spin {
+    .loader-container {
+      margin-top: 40px;
+      position: relative;
+      width: 200px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .loader-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 0%;
+      height: 100%;
+      background: #fbbf24;
+      box-shadow: 0 0 10px #fbbf24;
+      border-radius: 2px;
+      animation: progress 2.5s ease-in-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes progress {
       0% {
-        transform: rotate(0deg);
+        width: 0%;
+      }
+
+      50% {
+        width: 70%;
       }
 
       100% {
-        transform: rotate(360deg);
+        width: 100%;
       }
     }
   </style>
 </head>
 
 <body>
-  <h1>MWAS BEAUTY</h1>
-  <div class="loader"></div>
-  <p>Loading...</p>
+  <div class="container">
+    <div class="logo-container">
+      <!-- Embedded Base64 Logo -->
+      <img
+        src="data:image/png;base64,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"
+        alt="Mwas Beauty Logo" class="logo">
+    </div>
+    <h1>Mwas Beauty</h1>
+    <p>Premium Beauty Services</p>
+    <div class="loader-container">
+      <div class="loader-bar"></div>
+    </div>
+  </div>
 </body>
 
 </html>
