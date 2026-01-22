@@ -62,6 +62,7 @@
     },
     "files": [
       "backend/**/*",
+      "!backend/db/*.db",
       "frontend/dist/**/*",
       "electron/**/*",
       "package.json"
@@ -92,7 +93,11 @@
     },
     "linux": {
       "icon": "assets/icon.png",
-      "target": "AppImage"
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "maintainer": "Njoroge <admin@mwasbeauty.com>"
     }
   }
 }

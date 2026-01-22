@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getUsers, createUser, changePassword, deleteUser } from '../services/auth.api';
+import { useToast } from '../components/ui/Toast';
 
 export default function Users() {
+    const { showToast } = useToast();
     const [users, setUsers] = useState<any[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -43,8 +45,11 @@ export default function Users() {
             setCreateForm({ username: '', password: '', role: 'staff' });
             setConfirmPassword('');
             fetchUsers();
+            showToast('User created successfully!', 'success');
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Error creating user');
+            const msg = err.response?.data?.message || 'Error creating user';
+            setError(msg);
+            showToast(msg, 'error');
         }
     };
 
@@ -60,8 +65,9 @@ export default function Users() {
             setShowDeleteModal(false);
             setUserToDelete(null);
             fetchUsers();
+            showToast('User deleted successfully!', 'success');
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Error deleting user');
+            showToast(err.response?.data?.message || 'Error deleting user', 'error');
         }
     };
 
@@ -81,8 +87,11 @@ export default function Users() {
             setNewPassword('');
             setConfirmNewPassword('');
             setSelectedUserId(null);
+            showToast('Password updated successfully!', 'success');
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Error changing password');
+            const msg = err.response?.data?.message || 'Error changing password';
+            setError(msg);
+            showToast(msg, 'error');
         }
     };
 

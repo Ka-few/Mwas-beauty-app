@@ -4,6 +4,7 @@ import { getStylists } from '../services/stylists.api';
 import { getServices } from '../services/services.api';
 import { getProducts } from '../services/products.api';
 import { getSales, getAnalytics } from '../services/sales.api';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -13,7 +14,7 @@ export default function Dashboard() {
     products: 0,
     sales: 0
   });
-  const [analytics, setAnalytics] = useState<any>({ stylistPerformance: [], topProducts: [] });
+  const [analytics, setAnalytics] = useState<any>({ stylistPerformance: [], topProducts: [], salesOverTime: [] });
 
   const fetchStats = async () => {
     const clients = await getClients();
@@ -64,6 +65,34 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Sales Trend Chart */}
+      <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 mb-10">
+        <h2 className="text-xl font-bold mb-4 text-purple-900 border-b pb-2">Sales Over Time</h2>
+        <div className="h-80 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={analytics.salesOverTime}>
+              <defs>
+                <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Area type="monotone" dataKey="total" stroke="#8884d8" fillOpacity={1} fill="url(#colorTotal)" />
+            </AreaChart>
+          </ResponsiveContainer>
+          {(!analytics.salesOverTime || analytics.salesOverTime.length === 0) && (
+            <div className="flex justify-center items-center h-full">
+              <p className="text-gray-400 italic">No sales data recorded yet.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
         <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
           <h2 className="text-xl font-bold mb-4 text-purple-900 border-b pb-2">Stylist Performance</h2>
@@ -91,7 +120,7 @@ export default function Dashboard() {
           <h2 className="text-xl font-bold mb-4 text-purple-900 border-b pb-2">Top Products</h2>
           <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
             {analytics.topProducts.map((p: any) => (
-              <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+              <div key={p.id} className="flex items-center justify-between p-3 bg-gray-5 rounded">
                 <div>
                   <p className="font-semibold text-gray-800">{p.name}</p>
                   <p className="text-xs text-gray-500">Stock: {p.stock_quantity}</p>
@@ -107,17 +136,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      <div className="p-8 bg-white rounded-xl shadow-md border border-gray-100">
-        <h2 className="text-xl font-bold mb-6 text-purple-900">Quick Actions</h2>
-        <div className="flex flex-wrap gap-4">
-          <a href="/clients" className="btn-purple">Manage Clients</a>
-          <a href="/stylists" className="btn-purple">Manage Stylists</a>
-          <a href="/services" className="btn-purple">Manage Services</a>
-          <a href="/products" className="btn-purple">Manage Products</a>
-          <a href="/sales" className="btn-gold shadow-md">View Sales</a>
-        </div>
-      </div>
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
@@ -13,7 +13,7 @@ export default function Login() {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const res = await axios.post('/api/auth/login', { username, password });
+            const res = await api.post('/auth/login', { username, password });
             localStorage.setItem('user', JSON.stringify(res.data));
 
             const from = (location.state as any)?.from?.pathname || '/';

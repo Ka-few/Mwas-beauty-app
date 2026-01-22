@@ -115,12 +115,24 @@ export async function getAnalytics(req: Request, res: Response) {
       LIMIT 10
     `);
 
+    // Sales Over Time (Last 30 days)
+    const salesOverTime = await db.all(`
+      SELECT 
+        date(created_at) as date,
+        SUM(total_amount) as total
+      FROM sales
+      WHERE created_at >= date('now', '-30 days')
+      GROUP BY date(created_at)
+      ORDER BY date(created_at) ASC
+    `);
+
     res.json({
       stylistPerformance: stylistStats.map(s => ({
         ...s,
         commission_earned: (s.total_revenue * (s.commission_rate || 20)) / 100
       })),
-      topProducts: productStats
+      topProducts: productStats,
+      salesOverTime
     });
 
   } catch (error) {

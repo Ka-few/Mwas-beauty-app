@@ -92,10 +92,12 @@ function startBackend() {
   }
 }
 
-function createWindow() {
-  const iconPath = path.join(__dirname, '../../assets/icon.ico');
+let splashWindow: BrowserWindow | null = null;
+let mainWindow: BrowserWindow | null = null;
 
-  const splash = new BrowserWindow({
+function createSplash() {
+  const iconPath = path.join(__dirname, '../../assets/icon.ico');
+  splashWindow = new BrowserWindow({
     width: 600,
     height: 400,
     transparent: true,
@@ -110,9 +112,13 @@ function createWindow() {
     }
   });
 
-  splash.loadFile(path.join(__dirname, 'splash.html'));
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+  return splashWindow;
+}
 
-  const win = new BrowserWindow({
+function createMainWindow() {
+  const iconPath = path.join(__dirname, '../../assets/icon.ico');
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     show: false, // Don't show immediately
@@ -121,13 +127,13 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true // Ensure web security is on
+      webSecurity: true
     },
   });
 
   if (isDev) {
-    win.loadURL(process.env.ELECTRON_START_URL!);
-    win.webContents.openDevTools();
+    mainWindow.loadURL(process.env.ELECTRON_START_URL!);
+    mainWindow.webContents.openDevTools();
   } else {
     // Use relative path resolution for production
     const indexPath = path.join(__dirname, '../../frontend/dist/index.html');
@@ -137,30 +143,27 @@ function createWindow() {
       log(`CRITICAL ERROR: Index file not found at ${indexPath}`);
     }
 
-    win.loadFile(indexPath).catch(e => {
+    mainWindow.loadFile(indexPath).catch(e => {
       log(`Failed to load index.html: ${e.message}`);
     });
-    // win.webContents.openDevTools(); // Removed for production
   }
 
   // Log load failures
-  win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     log(`Window failed to load: ${errorCode} - ${errorDescription}`);
   });
 
   // Wait for content to finish loading or a set time before showing main window
-  win.once('ready-to-show', () => {
+  mainWindow.once('ready-to-show', () => {
     log('Main window ready to show');
-    // Ensure splash stays for at least a moment to show the branding, but not too long if ready
     setTimeout(() => {
-      // Double check if win is still around
-      if (win && !win.isDestroyed()) {
-        win.show();
-        if (splash && !splash.isDestroyed()) {
-          splash.destroy();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        if (splashWindow && !splashWindow.isDestroyed()) {
+          splashWindow.close();
         }
       }
-    }, 2000);
+    }, 1000);
   });
 }
 
@@ -192,10 +195,13 @@ async function waitForBackend() {
 }
 
 app.whenReady().then(async () => {
-  log('App Ready. Starting services...');
+  createSplash(); // Show splash immediately
+  log('App Ready. Splash shown. Starting services...');
+
   startBackend();
-  await waitForBackend(); // Wait before showing window
-  createWindow();
+  await waitForBackend(); // Wait for backend while splash is visible
+
+  createMainWindow(); // Create main window (will close splash when ready)
 });
 
 app.on('window-all-closed', () => {
@@ -207,7 +213,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
 });
 
 app.on('quit', () => {

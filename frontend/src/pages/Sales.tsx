@@ -27,7 +27,7 @@ export default function Sales() {
   const [selectedClient, setSelectedClient] = useState<number | null>(null);
   const [selectedServices, setSelectedServices] = useState<any[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'MPESA'>('CASH');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Mpesa'>('Cash');
 
   const fetchAll = async () => {
     try {
@@ -108,7 +108,7 @@ export default function Sales() {
       setSelectedClient(null);
       setSelectedServices([]);
       setSelectedProducts([]);
-      setPaymentMethod('CASH');
+      setPaymentMethod('Cash');
 
       // Refresh data
       fetchAll();
@@ -248,6 +248,13 @@ export default function Sales() {
 
   const addService = (serviceId: string) => {
     if (!serviceId) return;
+
+    // Check if stylists exist
+    if (stylists.length === 0) {
+      showToast('No stylists available! Please add a stylist in the Staff section first.', 'error');
+      return;
+    }
+
     const sId = Number(serviceId);
     const service = services.find(s => s.id === sId);
     if (service) {
@@ -280,8 +287,8 @@ export default function Sales() {
         <div className="w-full md:w-1/3">
           <label className="block text-gray-700 font-bold mb-2">Payment Method</label>
           <select value={paymentMethod} onChange={(e: any) => setPaymentMethod(e.target.value)} className="border p-2 rounded w-full bg-gray-50 font-medium text-purple-900">
-            <option value="CASH">Cash</option>
-            <option value="MPESA">Mpesa</option>
+            <option value="Cash">Cash</option>
+            <option value="Mpesa">Mpesa</option>
           </select>
         </div>
       </div>

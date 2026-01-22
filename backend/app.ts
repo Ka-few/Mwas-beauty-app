@@ -13,19 +13,7 @@ const app = express();
 
 // Enable CORS - MUST be before routes
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl requests, or file://)
-    if (!origin || origin === 'null' || origin.startsWith('file://')) {
-      return callback(null, true);
-    }
-    // Allow localhost (development)
-    if (origin.startsWith('http://localhost')) {
-      return callback(null, true);
-    }
-
-    // Block others
-    callback(new Error('Not allowed by CORS'));
-  },
+  origin: true, // Allow all origins for local desktop app usage
   credentials: true
 }));
 
