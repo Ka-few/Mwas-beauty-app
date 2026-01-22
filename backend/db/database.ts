@@ -1,17 +1,46 @@
 import * as sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import { open, Database as SQLiteDB } from 'sqlite';
 import path from 'path';
 import fs from 'fs';
 
-export async function initializeDB() {
+let dbInstance: SQLiteDB | null = null;
+
+export async function initializeDB(): Promise<SQLiteDB> {
+    if (dbInstance) {
+        return dbInstance;
+    }
+
     const dbPath = process.env.DB_PATH || path.join(__dirname, 'salon.db');
 
-    const db = await open({
-        filename: dbPath,
-        driver: sqlite3.Database
-    });
+    // Ensure directory exists (only check once)
+    try {
+        const dir = path.dirname(dbPath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+            console.log('Created database directory:', dir);
+        }
+    } catch (err) {
+        console.error('Failed to create database directory:', err);
+    }
 
-    // 1. Run schema (embedded to avoid file path issues in production)
+    try {
+        dbInstance = await open({
+            filename: dbPath,
+            driver: sqlite3.Database
+        });
+
+        // Define Migrations
+        await runMigrations(dbInstance);
+
+        console.log('SQLite DB initialized successfully at:', dbPath);
+        return dbInstance;
+    } catch (error) {
+        console.error('CRITICAL: Failed to open database at', dbPath, error);
+        throw error;
+    }
+}
+
+async function runMigrations(db: SQLiteDB) {
     const schema = `
 -- Users Table
 CREATE TABLE IF NOT EXISTS users (
@@ -117,9 +146,10 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 
     try {
         await db.exec(schema);
-        console.log('Schema applied successfully.');
+        // console.log('Schema check passed.'); 
     } catch (error) {
         console.error('CRITICAL: Failed to apply schema', error);
+        throw error;
     }
 
     // 2. Safe migration: Add commission_rate if missing from old tables
@@ -127,13 +157,12 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         await db.exec('ALTER TABLE stylists ADD COLUMN commission_rate REAL DEFAULT 20.0;');
         console.log('Successfully added commission_rate column to stylists table');
     } catch (e: any) {
-        if (e.message && e.message.includes('duplicate column name')) {
-            console.log('Migration skipped: commission_rate already exists');
-        } else {
-            console.log('Migration info (can ignore if table is new):', e.message);
+        // Ignore "duplicate column name" errors silently for cleaner logs
+        if (!e.message || !e.message.includes('duplicate column name')) {
+            // Only log other errors
+            // console.log('Migration info:', e.message);
         }
     }
-
-    console.log('SQLite DB initialized successfully at:', dbPath);
-    return db;
 }
+
+export const getDB = initializeDB; // Alias for backward compatibility or clarity

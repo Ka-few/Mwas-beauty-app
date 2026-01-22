@@ -164,9 +164,37 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+// Helper to check if backend is ready
+const checkBackend = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    const { net } = require('electron');
+    const request = net.request('http://localhost:3001/api/auth/users'); // Use an existing endpoint to check
+    request.on('response', (response: any) => {
+      resolve(true); // Any response means server is up (even 401/404)
+    });
+    request.on('error', (error: any) => {
+      resolve(false);
+    });
+    request.end();
+  });
+};
+
+async function waitForBackend() {
+  log('Waiting for backend to start...');
+  for (let i = 0; i < 20; i++) { // Try for 20 seconds (20 * 1000ms)
+    if (await checkBackend()) {
+      log('Backend is ready!');
+      return;
+    }
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  log('Backend failed to start within timeout.');
+}
+
+app.whenReady().then(async () => {
   log('App Ready. Starting services...');
   startBackend();
+  await waitForBackend(); // Wait before showing window
   createWindow();
 });
 

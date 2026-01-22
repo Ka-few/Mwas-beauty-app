@@ -28,7 +28,6 @@ export async function login(req: Request, res: Response) {
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ message: 'Login failed' });
-        await db.close();
     }
 }
 
@@ -39,8 +38,6 @@ export async function getUsers(req: Request, res: Response) {
         res.json(users);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching users' });
-    } finally {
-        await db.close();
     }
 }
 
@@ -61,8 +58,6 @@ export async function createUser(req: Request, res: Response) {
         res.status(201).json({ message: 'User created' });
     } catch (error) {
         res.status(500).json({ message: 'Error creating user' });
-    } finally {
-        await db.close();
     }
 }
 
@@ -81,7 +76,16 @@ export async function changePassword(req: Request, res: Response) {
         res.json({ message: 'Password updated' });
     } catch (error) {
         res.status(500).json({ message: 'Error updating password' });
-    } finally {
-        await db.close();
+    }
+}
+
+export async function deleteUser(req: Request, res: Response) {
+    const { id } = req.params;
+    const db = await initializeDB();
+    try {
+        await db.run('DELETE FROM users WHERE id = ?', id);
+        res.json({ message: 'User deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error deleting user' });
     }
 }

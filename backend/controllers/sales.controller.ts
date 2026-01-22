@@ -3,9 +3,12 @@ import { initializeDB } from '../db/database';
 
 export async function getSales(req: Request, res: Response) {
   const db = await initializeDB();
-  const sales = await db.all('SELECT * FROM sales ORDER BY created_at DESC');
-  await db.close();
-  res.json(sales);
+  try {
+    const sales = await db.all('SELECT * FROM sales ORDER BY created_at DESC');
+    res.json(sales);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching sales' });
+  }
 }
 
 export async function addSale(req: Request, res: Response) {
@@ -74,8 +77,6 @@ export async function addSale(req: Request, res: Response) {
     await db.run('ROLLBACK');
     console.error(err);
     res.status(500).json({ message: 'Error creating sale', error: err });
-  } finally {
-    await db.close();
   }
 }
 
@@ -125,8 +126,6 @@ export async function getAnalytics(req: Request, res: Response) {
   } catch (error) {
     console.error('Analytics Error:', error);
     res.status(500).json({ message: 'Failed to fetch analytics' });
-  } finally {
-    await db.close();
   }
 }
 
@@ -294,7 +293,5 @@ export async function getReports(req: Request, res: Response) {
   } catch (error) {
     console.error('Reports Error:', error);
     res.status(500).json({ message: 'Failed to generate reports' });
-  } finally {
-    await db.close();
   }
 }

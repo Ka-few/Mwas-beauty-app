@@ -6,6 +6,16 @@ import { getServices } from '../services/services.api';
 import { getProducts } from '../services/products.api';
 import { getStylists } from '../services/stylists.api';
 import DataTable from '../components/tables/DataTable';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import logoImg from '../assets/logo.png';
+
+// Fix for jspdf-autotable type definition if needed
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 export default function Sales() {
   const { showToast } = useToast();
@@ -116,9 +126,11 @@ export default function Sales() {
     }
   };
 
+
   const printReceipt = (saleId: number, total: number, servicesList: any[], productsList: any[], method: string) => {
     const clientName = clients.find(c => c.id === selectedClient)?.name || 'Walk-in Client';
     const date = new Date().toLocaleString();
+    const logoUrl = window.location.origin + logoImg;
 
     const receiptContent = `
         <html>
@@ -141,7 +153,15 @@ export default function Sales() {
                 padding-bottom: 8px; 
                 border-bottom: 1px dashed black; 
               }
-              h3 { margin: 5px 0; font-size: 16px; font-weight: bold; }
+              .logo {
+                width: 40px;
+                height: auto;
+                margin-bottom: 5px;
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+              }
+              h3 { margin: 5px 0; font-size: 16px; font-weight: bold; text-transform: uppercase; }
               p { margin: 2px 0; }
               .item { 
                 display: flex; 
@@ -171,6 +191,7 @@ export default function Sales() {
           </head>
           <body>
             <div class="header">
+              <img src="${logoUrl}" class="logo" alt="Logo" />
               <h3>MWAS BEAUTY</h3>
               <p>Receipt #${saleId}</p>
               <p>${date}</p>
@@ -370,9 +391,63 @@ export default function Sales() {
         <button onClick={handleAddSale} className="btn-gold text-lg px-8 py-3 shadow-lg transform hover:scale-105 transition-transform font-bold text-purple-900">Complete Sale</button>
       </div>
 
-      {/* Sales Table */}
       <div className="mt-6">
-        <h2 className="font-bold mb-2">All Sales</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-bold text-xl text-purple-900">All Sales</h2>
+          <div className="flex gap-2">
+            <button onClick={() => {
+              const headers = ['ID', 'Client', 'Amount', 'Payment', 'Status', 'Date'];
+              const rows = sales.map(s => [
+                s.id,
+                clients.find(c => c.id === s.client_id)?.name || 'Unknown',
+                s.total_amount,
+                s.payment_method,
+                s.status || 'Completed',
+                new Date(s.created_at || Date.now()).toLocaleDateString()
+              ]);
+              const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+              const link = document.createElement("a");
+              link.setAttribute("href", encodeURI(csvContent));
+              link.setAttribute("download", "sales_data.csv");
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }} className="bg-green-600 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-green-700">Export CSV</button>
+            <button onClick={() => {
+              const doc = new jsPDF();
+              const pageWidth = doc.internal.pageSize.width;
+              doc.setFontSize(18);
+              doc.setTextColor(88, 28, 135);
+              doc.text("MWAS BEAUTY - Sales Report", pageWidth / 2, 20, { align: 'center' });
+              doc.setFontSize(10);
+              doc.setTextColor(100);
+              doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 28, { align: 'center' });
+
+              const tableColumn = ["ID", "Client", "Amount", "Method", "Date"];
+              const tableRows: any[] = [];
+              sales.forEach(s => {
+                const rowData = [
+                  s.id,
+                  clients.find(c => c.id === s.client_id)?.name || 'Unknown',
+                  s.total_amount.toLocaleString(),
+                  s.payment_method,
+                  new Date(s.created_at || Date.now()).toLocaleDateString()
+                ];
+                tableRows.push(rowData);
+              });
+
+              autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: 35,
+                headStyles: { fillColor: [88, 28, 135] },
+                alternateRowStyles: { fillColor: [243, 244, 246] },
+                theme: 'grid'
+              });
+              doc.save('sales_report.pdf');
+            }} className="bg-red-600 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-red-700">Export PDF</button>
+          </div>
+        </div>
         <DataTable
           columns={['id', 'client_id', 'total_amount', 'payment_method', 'status']}
           data={sales}

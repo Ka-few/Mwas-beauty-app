@@ -1,65 +1,88 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { login } from '../services/auth.api';
+import React, { useState } from 'react';
+import axios from 'axios';
+import { useNavigate, useLocation } from 'react-router-dom';
+import logo from '../assets/logo.png';
 
 export default function Login() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
+    const location = useLocation();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const user = await login({ username, password });
-            localStorage.setItem('user', JSON.stringify(user));
-            navigate('/');
-        } catch (err: any) {
-            console.error('Login error:', err);
-            // detailed error for debugging
-            if (err.response && err.response.data && err.response.data.message) {
-                setError(`Login Failed: ${err.response.data.message}`);
-            } else if (err.message) {
-                setError(`Network/System Error: ${err.message}`);
+            const res = await axios.post('/api/auth/login', { username, password });
+            localStorage.setItem('user', JSON.stringify(res.data));
+
+            const from = (location.state as any)?.from?.pathname || '/';
+            // If admin, go to dashboard (or from), if staff go to sales
+            if (res.data.role !== 'admin' && from === '/') {
+                navigate('/sales');
             } else {
-                setError('Invalid credentials or Server Error');
+                navigate(from);
             }
+
+        } catch (err) {
+            setError('Invalid credentials');
         }
     };
 
     return (
-        <div className="min-h-screen bg-purple-900 flex items-center justify-center p-4">
-            <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border-t-4 border-gold-500">
-                <h1 className="text-3xl font-bold text-center text-purple-900 mb-8 tracking-wider">MWAS BEAUTY</h1>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-purple-800 to-black">
+            <div className="bg-white p-8 rounded-2xl shadow-2xl w-96 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-gold-400 to-gold-600"></div>
 
-                {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-center">{error}</div>}
+                <div className="flex flex-col items-center mb-6">
+                    <div className="w-24 h-24 rounded-full bg-purple-50 flex items-center justify-center mb-3 shadow-inner border-2 border-gold-200">
+                        <img src={logo} alt="Mwas Beauty" className="w-20 h-20 object-contain rounded-full" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-purple-900 tracking-tight">MWAS BEAUTY</h2>
+                    <p className="text-sm text-purple-400 uppercase tracking-widest mt-1">Salon Management</p>
+                </div>
 
-                <form onSubmit={handleLogin} className="space-y-6">
+                {error && (
+                    <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm text-center border border-red-100 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {error}
+                    </div>
+                )}
+
+                <form onSubmit={handleLogin} className="space-y-5">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
                         <input
                             type="text"
+                            className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
                             value={username}
-                            onChange={e => setUsername(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-                            placeholder="Enter username"
+                            onChange={(e) => setUsername(e.target.value)}
+                            placeholder="Enter your username"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                         <input
                             type="password"
+                            className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
                             value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-                            placeholder="Enter password"
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••••"
                         />
                     </div>
-                    <button type="submit" className="w-full bg-purple-900 text-white p-3 rounded font-bold hover:bg-purple-800 transition-colors uppercase tracking-wide">
+                    <button
+                        type="submit"
+                        className="w-full bg-gradient-to-r from-purple-700 to-purple-900 text-white p-3 rounded-lg font-bold shadow-lg hover:shadow-xl hover:from-purple-800 hover:to-purple-950 transition-all transform hover:-translate-y-0.5"
+                    >
                         Sign In
                     </button>
                 </form>
-                <p className="mt-6 text-center text-xs text-gray-400">&copy; 2024 Mwas Beauty</p>
+
+                <div className="mt-6 text-center text-xs text-gray-400">
+                    &copy; {new Date().getFullYear()} Mwas Beauty Systems
+                </div>
             </div>
         </div>
     );

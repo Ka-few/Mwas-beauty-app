@@ -67,7 +67,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
         <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
           <h2 className="text-xl font-bold mb-4 text-purple-900 border-b pb-2">Stylist Performance</h2>
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
             {analytics.stylistPerformance.map((s: any, index: number) => (
               <div key={s.id} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -89,7 +89,7 @@ export default function Dashboard() {
 
         <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
           <h2 className="text-xl font-bold mb-4 text-purple-900 border-b pb-2">Top Products</h2>
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
             {analytics.topProducts.map((p: any) => (
               <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
                 <div>

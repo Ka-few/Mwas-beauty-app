@@ -1,14 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getReports } from '../services/sales.api';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+import logoImg from '../assets/logo.png';
 
-// Fix for jspdf-autotable type definition if needed
-declare module 'jspdf' {
-    interface jsPDF {
-        autoTable: (options: any) => jsPDF;
-    }
-}
 
 export default function Reports() {
     const [reports, setReports] = useState<any>(null);
@@ -52,20 +47,45 @@ export default function Reports() {
         if (!reports || !reports.daily) return;
 
         const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
 
-        doc.setFontSize(18);
-        doc.text("Financial Report", 14, 22);
+        // --- Header ---
+        // Title
+        doc.setFontSize(22);
+        doc.setTextColor(88, 28, 135); // purple-900
+        doc.text("MWAS BEAUTY", pageWidth / 2, 20, { align: 'center' });
 
-        doc.setFontSize(11);
-        doc.text(`Period: ${startDate || 'All Time'} to ${endDate || 'All Time'}`, 14, 30);
-        doc.text(`Total Net Income: KES ${reports.summary?.totalNetIncome.toLocaleString()}`, 14, 38);
+        doc.setFontSize(14);
+        doc.setTextColor(100);
+        doc.text("Financial Report", pageWidth / 2, 28, { align: 'center' });
 
-        const tableColumn = ["Date", "Gross Rev.", "Prod. Profit", "Comm.", "Net Income"];
+        // Period & Summary
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        const periodText = `Period: ${startDate || 'Start'} to ${endDate || 'Present'}`;
+        doc.text(periodText, 14, 40);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 40, { align: 'right' });
+
+        // Summary Box
+        doc.setDrawColor(234, 179, 8); // gold-500
+        doc.setLineWidth(0.5);
+        doc.rect(14, 45, pageWidth - 28, 25);
+
+        doc.setFontSize(12);
+        doc.text("Summary", 20, 52);
+        doc.setFontSize(10);
+        doc.text(`Total Revenue: KES ${reports.summary?.totalRevenue.toLocaleString()}`, 20, 60);
+        doc.text(`Net Income: KES ${reports.summary?.totalNetIncome.toLocaleString()}`, 80, 60);
+        doc.text(`Commissions: KES ${reports.summary?.totalCommissions.toLocaleString()}`, 140, 60);
+
+
+        // --- Table ---
+        const tableColumn = ["Date", "Gross Revenue", "Product Profit", "Commissions", "Net Income"];
         const tableRows: any[] = [];
 
         reports.daily.forEach((r: any) => {
             const rowData = [
-                r.date,
+                new Date(r.date).toLocaleDateString(),
                 r.grossRevenue.toLocaleString(),
                 r.productProfit.toLocaleString(),
                 r.commissions.toLocaleString(),
@@ -74,13 +94,78 @@ export default function Reports() {
             tableRows.push(rowData);
         });
 
-        doc.autoTable({
+        autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
-            startY: 45,
+            startY: 80,
+            headStyles: { fillColor: [88, 28, 135], textColor: 255 }, // purple-900
+            alternateRowStyles: { fillColor: [243, 244, 246] }, // gray-100
+            footStyles: { fillColor: [234, 179, 8] },
+            theme: 'grid'
         });
 
-        doc.save(`report_${startDate}_${endDate}.pdf`);
+        // Add Footer
+        const finalY = (doc as any).lastAutoTable.finalY + 10;
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text("Mwas Beauty System - Confidential", pageWidth / 2, finalY, { align: 'center' });
+
+        doc.save(`Financial_Report_${startDate || 'all'}_${endDate || 'all'}.pdf`);
+    };
+
+
+    const exportCommissionsPDF = () => {
+        if (!reports || !reports.todayCommissions) return;
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+
+        // Logo
+        const imgWidth = 25;
+        const imgHeight = 25;
+        const x = (pageWidth - imgWidth) / 2;
+        doc.addImage(logoImg, 'PNG', x, 10, imgWidth, imgHeight);
+
+        // Header
+        doc.setFontSize(18);
+        doc.setTextColor(88, 28, 135);
+        doc.text("MWAS BEAUTY", pageWidth / 2, 45, { align: 'center' });
+        doc.setFontSize(12);
+        doc.setTextColor(50);
+        doc.text("Daily Commissions Payout", pageWidth / 2, 52, { align: 'center' });
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Date: ${new Date().toLocaleDateString()}`, pageWidth / 2, 58, { align: 'center' });
+
+        const tableColumn = ["Stylist Name", "Commission Amount", "Signature"];
+        const tableRows: any[] = [];
+        let total = 0;
+
+        reports.todayCommissions.forEach((c: any) => {
+            const rowData = [
+                c.name,
+                c.commission.toLocaleString(),
+                "" // Placeholder for signature
+            ];
+            tableRows.push(rowData);
+            total += c.commission;
+        });
+
+        // Add total row
+        tableRows.push(["TOTAL PAYOUT", total.toLocaleString(), ""]);
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 65,
+            headStyles: { fillColor: [88, 28, 135] },
+            theme: 'grid',
+            columnStyles: {
+                2: { minCellHeight: 15 } // Extra space for signature
+            }
+        });
+
+        doc.save(`commissions_payout_${new Date().toISOString().split('T')[0]}.pdf`);
     };
 
     if (!reports) return <div className="p-8">Loading reports...</div>;
@@ -89,6 +174,7 @@ export default function Reports() {
 
     return (
         <div className="p-8 pb-20">
+            {/* ... (existing code for filters and summary cards) ... */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <h1 className="text-3xl font-bold text-purple-900 border-b-4 border-gold-500 inline-block pb-2">Financial Reports</h1>
 
@@ -189,6 +275,9 @@ export default function Reports() {
                         <h2 className="text-2xl font-bold text-purple-900">Today's Stylist Payouts</h2>
                         <p className="text-gray-500 italic">Expected commissions to be paid out by end of day ({new Date().toLocaleDateString()})</p>
                     </div>
+                    <button onClick={exportCommissionsPDF} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700 shadow flex items-center gap-2">
+                        Export Payout Sheet
+                    </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

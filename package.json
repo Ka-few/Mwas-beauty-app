@@ -14,7 +14,8 @@
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.11.0",
     "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
@@ -40,7 +41,9 @@
     "frontend:build": "cd frontend && npm run build",
     "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\" \"wait-on http://localhost:3000 && ELECTRON_START_URL=http://localhost:3000 electron -r ts-node/register electron/main.ts\"",
     "build": "npm run frontend:build && npm run backend:build && npm run backend:bundle && npm run electron:build",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "postinstall": "electron-builder install-app-deps",
+    "web": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\""
   },
   "build": {
     "appId": "com.mwas.desktop",

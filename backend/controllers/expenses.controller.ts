@@ -8,8 +8,6 @@ export async function getExpenses(req: Request, res: Response) {
         res.json(expenses);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching expenses' });
-    } finally {
-        await db.close();
     }
 }
 
@@ -30,8 +28,6 @@ export async function addExpense(req: Request, res: Response) {
         res.status(201).json({ id: result.lastID, message: 'Expense added' });
     } catch (error) {
         res.status(500).json({ message: 'Error adding expense' });
-    } finally {
-        await db.close();
     }
 }
 
@@ -43,7 +39,5 @@ export async function deleteExpense(req: Request, res: Response) {
         res.json({ message: 'Expense deleted' });
     } catch (error) {
         res.status(500).json({ message: 'Error deleting expense' });
-    } finally {
-        await db.close();
     }
 }

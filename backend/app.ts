@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { errorHandler } from './middleware/error';
 import clientsRoutes from './routes/clients.routes';
 import stylistsRoutes from './routes/stylists.routes';
 import servicesRoutes from './routes/services.routes';
@@ -37,5 +38,8 @@ app.use('/api/products', productsRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/expenses', expensesRoutes);
+
+// Global Error Handler
+app.use(errorHandler);
 
 export default app;
