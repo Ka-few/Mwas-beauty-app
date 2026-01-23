@@ -21,12 +21,13 @@ export default function Reports() {
     const exportCSV = () => {
         if (!reports || !reports.daily) return;
 
-        const headers = ['Date', 'Gross Revenue', 'Product Profit', 'Commissions', 'Net Income'];
+        const headers = ['Date', 'Gross Revenue', 'Product Profit', 'Commissions', 'Expenses', 'Net Income'];
         const rows = reports.daily.map((r: any) => [
             r.date,
             r.grossRevenue,
             r.productProfit,
             r.commissions,
+            r.expenses || 0,
             r.netIncome
         ]);
 
@@ -76,11 +77,12 @@ export default function Reports() {
         doc.setFontSize(10);
         doc.text(`Total Revenue: KES ${reports.summary?.totalRevenue.toLocaleString()}`, 20, 60);
         doc.text(`Net Income: KES ${reports.summary?.totalNetIncome.toLocaleString()}`, 80, 60);
-        doc.text(`Commissions: KES ${reports.summary?.totalCommissions.toLocaleString()}`, 140, 60);
+        doc.text(`Expenses: KES ${reports.summary?.totalExpenses?.toLocaleString() || '0'}`, 140, 60);
+        doc.text(`Commissions: KES ${reports.summary?.totalCommissions.toLocaleString()}`, 20, 67);
 
 
         // --- Table ---
-        const tableColumn = ["Date", "Gross Revenue", "Product Profit", "Commissions", "Net Income"];
+        const tableColumn = ["Date", "Gross Revenue", "Product Profit", "Commissions", "Expenses", "Net Income"];
         const tableRows: any[] = [];
 
         reports.daily.forEach((r: any) => {
@@ -89,6 +91,7 @@ export default function Reports() {
                 r.grossRevenue.toLocaleString(),
                 r.productProfit.toLocaleString(),
                 r.commissions.toLocaleString(),
+                (r.expenses || 0).toLocaleString(),
                 r.netIncome.toLocaleString(),
             ];
             tableRows.push(rowData);
@@ -195,7 +198,7 @@ export default function Reports() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                 {/* Total Revenue */}
                 <div className="bg-purple-900 text-gold-400 p-6 rounded-xl shadow-lg border border-gold-500 relative overflow-hidden">
                     <div className="relative z-10">
@@ -221,6 +224,13 @@ export default function Reports() {
                     <p className="text-2xl font-bold text-red-500 mb-2">KES {summary?.totalCommissions.toLocaleString()}</p>
                     <p className="text-gray-400 text-xs">Paid to stylists/technicians</p>
                 </div>
+
+                {/* Total Expenses */}
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col justify-center">
+                    <p className="text-gray-500 text-sm uppercase font-bold">Total Expenses</p>
+                    <p className="text-2xl font-bold text-orange-600 mb-2">KES {summary?.totalExpenses?.toLocaleString() || '0'}</p>
+                    <p className="text-gray-400 text-xs">Operating expenses</p>
+                </div>
             </div>
 
             {/* Daily Reports Table */}
@@ -245,6 +255,7 @@ export default function Reports() {
                                 <th className="p-4 text-right">Gross Rev.</th>
                                 <th className="p-4 text-right">Prod. Profit</th>
                                 <th className="p-4 text-right">Commissions</th>
+                                <th className="p-4 text-right">Expenses</th>
                                 <th className="p-4 text-right bg-purple-100 text-purple-900">Net Income</th>
                             </tr>
                         </thead>
@@ -255,12 +266,13 @@ export default function Reports() {
                                     <td className="p-4 text-right text-gray-600">{day.grossRevenue.toLocaleString()}</td>
                                     <td className="p-4 text-right text-green-600">+{day.productProfit.toLocaleString()}</td>
                                     <td className="p-4 text-right text-red-500">-{day.commissions.toLocaleString()}</td>
+                                    <td className="p-4 text-right text-orange-600">-{(day.expenses || 0).toLocaleString()}</td>
                                     <td className="p-4 text-right font-bold text-purple-900 bg-purple-50">{day.netIncome.toLocaleString()}</td>
                                 </tr>
                             ))}
                             {(!daily || daily.length === 0) && (
                                 <tr>
-                                    <td colSpan={5} className="p-8 text-center text-gray-400 italic">No records found for this period.</td>
+                                    <td colSpan={6} className="p-8 text-center text-gray-400 italic">No records found for this period.</td>
                                 </tr>
                             )}
                         </tbody>
