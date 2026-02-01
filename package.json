@@ -13,8 +13,7 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.11.0",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7",
+    "sql.js": "^1.12.0",
     "zod": "^4.3.5"
   },
   "devDependencies": {
@@ -27,7 +26,7 @@
     "concurrently": "^9.2.1",
     "electron": "^33.2.1",
     "electron-builder": "^26.4.0",
-    "electron-rebuild": "^3.2.9",
+    "@types/sql.js": "^1.4.9",
     "esbuild": "^0.27.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
@@ -38,12 +37,11 @@
     "frontend:dev": "cd frontend && npx vite --port 3000",
     "electron:build": "tsc -p electron",
     "backend:build": "tsc -p backend",
-    "backend:bundle": "esbuild backend/server.ts --bundle --platform=node --target=node20 --external:sqlite3 --outfile=backend/dist/server.bundle.js --format=cjs",
+    "backend:bundle": "esbuild backend/server.ts --bundle --platform=node --target=node20 --outfile=backend/dist/server.bundle.js --format=cjs && cp node_modules/sql.js/dist/sql-wasm.wasm backend/dist/",
     "frontend:build": "cd frontend && npm run build",
     "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\" \"wait-on http://localhost:3000 && ELECTRON_START_URL=http://localhost:3000 electron -r ts-node/register electron/main.ts\"",
     "build": "npm run frontend:build && npm run backend:build && npm run backend:bundle && npm run electron:build",
     "dist": "npm run build && electron-builder --win --x64",
-    "rebuild": "electron-rebuild -f -w sqlite3",
     "postinstall": "electron-builder install-app-deps",
     "web": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\""
   },
@@ -51,13 +49,9 @@
     "appId": "com.mwas.desktop",
     "productName": "MwasBeauty",
     "asar": true,
-    "npmRebuild": true,
     "asarUnpack": [
       "backend/dist/**/*",
-      "backend/db/schema.sql",
-      "node_modules/sqlite3/**/*",
-      "node_modules/bindings/**/*",
-      "node_modules/file-uri-to-path/**/*"
+      "backend/db/schema.sql"
     ],
     "directories": {
       "buildResources": "assets",

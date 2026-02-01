@@ -127,7 +127,7 @@ export async function getAnalytics(req: Request, res: Response) {
     `);
 
     res.json({
-      stylistPerformance: stylistStats.map(s => ({
+      stylistPerformance: stylistStats.map((s: any) => ({
         ...s,
         commission_earned: (s.total_revenue * (s.commission_rate || 20)) / 100
       })),
@@ -159,9 +159,9 @@ export async function getReports(req: Request, res: Response) {
             SELECT COALESCE(SUM(total_amount), 0) as total 
             FROM sales 
             ${dateFilter}
-        `, ...params);
+        `, ...params) as any;
 
-    const totalRevenue = revenueResult.total;
+    const totalRevenue = revenueResult?.total || 0;
 
     // 2. Product Profit
     // Need to join sales to filter by date
@@ -171,8 +171,8 @@ export async function getReports(req: Request, res: Response) {
             JOIN products p ON sp.product_id = p.id
             JOIN sales ON sp.sale_id = sales.id
             ${dateFilter}
-        `, ...params);
-    const productProfit = productProfitResult.profit;
+        `, ...params) as any;
+    const productProfit = productProfitResult?.profit || 0;
 
     // 3. Service Financials
     const serviceFinancials = await db.get(`
@@ -183,10 +183,10 @@ export async function getReports(req: Request, res: Response) {
             JOIN stylists s ON ss.stylist_id = s.id
             JOIN sales ON ss.sale_id = sales.id
             ${dateFilter}
-        `, ...params);
+        `, ...params) as any;
 
-    const grossServiceRevenue = serviceFinancials.gross_service_revenue;
-    const totalCommissions = serviceFinancials.total_commissions;
+    const grossServiceRevenue = serviceFinancials?.gross_service_revenue || 0;
+    const totalCommissions = serviceFinancials?.total_commissions || 0;
     const serviceNetIncome = grossServiceRevenue - totalCommissions;
 
     // 4. Daily Breakdown
@@ -219,7 +219,7 @@ export async function getReports(req: Request, res: Response) {
         `, ...params);
 
     // Calculate net income for each day in JS to simplify SQL
-    const dailyReportsWithNet = dailyReports.map(day => {
+    const dailyReportsWithNet = dailyReports.map((day: any) => {
       return day;
     });
 
@@ -234,7 +234,7 @@ export async function getReports(req: Request, res: Response) {
             GROUP BY date(sales.created_at)
         `, ...params);
 
-    const serviceRevMap = new Map(dailyServices.map(d => [d.date, d.service_revenue]));
+    const serviceRevMap = new Map(dailyServices.map((d: any) => [d.date, d.service_revenue]));
 
     // Fetch Expenses grouped by day
     let expenseFilter = "";
@@ -251,19 +251,19 @@ export async function getReports(req: Request, res: Response) {
             GROUP BY date
         `, ...expenseParams);
 
-    const expenseMap = new Map(dailyExpenses.map(d => [d.date, d.total_expense]));
+    const expenseMap = new Map(dailyExpenses.map((d: any) => [d.date, d.total_expense]));
 
     // Total Expenses
-    const totalExpensesResult = await db.get(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses ${expenseFilter}`, ...expenseParams);
-    const totalExpenses = totalExpensesResult.total;
+    const totalExpensesResult = await db.get(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses ${expenseFilter}`, ...expenseParams) as any;
+    const totalExpenses = totalExpensesResult?.total || 0;
 
 
-    const finalDailyReports = dailyReports.map(day => {
-      const serviceRevenue = serviceRevMap.get(day.date) || 0;
-      const expense = expenseMap.get(day.date) || 0;
+    const finalDailyReports = dailyReports.map((day: any) => {
+      const serviceRevenue = (serviceRevMap.get(day.date) || 0) as number;
+      const expense = (expenseMap.get(day.date) || 0) as number;
 
-      const serviceNet = serviceRevenue - day.daily_commissions;
-      const totalNet = serviceNet + day.product_profit - expense;
+      const serviceNet = serviceRevenue - (day.daily_commissions as number);
+      const totalNet = serviceNet + (day.product_profit as number) - expense;
 
       return {
         date: day.date,

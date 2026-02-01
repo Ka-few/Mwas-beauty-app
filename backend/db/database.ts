@@ -1,18 +1,18 @@
-import * as sqlite3 from 'sqlite3';
-import { open, Database as SQLiteDB } from 'sqlite';
+import initSqlJs from 'sql.js';
 import path from 'path';
 import fs from 'fs';
 
-let dbInstance: SQLiteDB | null = null;
+let dbInstance: any = null;
+let sqlInstance: any = null;
 
-export async function initializeDB(): Promise<SQLiteDB> {
+export async function initializeDB(): Promise<any> {
     if (dbInstance) {
         return dbInstance;
     }
 
     const dbPath = process.env.DB_PATH || path.join(__dirname, 'salon.db');
 
-    // Ensure directory exists (only check once)
+    // Ensure directory exists
     try {
         const dir = path.dirname(dbPath);
         if (!fs.existsSync(dir)) {
@@ -24,15 +24,76 @@ export async function initializeDB(): Promise<SQLiteDB> {
     }
 
     try {
-        dbInstance = await open({
-            filename: dbPath,
-            driver: sqlite3.Database
-        });
+        // Initialize sql.js
+        if (!sqlInstance) {
+            sqlInstance = await initSqlJs({
+                locateFile: (file) => path.join(__dirname, file)
+            });
+        }
+
+        let buffer: Uint8Array | undefined;
+        if (fs.existsSync(dbPath)) {
+            buffer = new Uint8Array(fs.readFileSync(dbPath));
+        }
+
+        const db = new sqlInstance.Database(buffer);
+
+        const saveDB = () => {
+            try {
+                const data = db.export();
+                const nodeBuffer = Buffer.from(data);
+                fs.writeFileSync(dbPath, nodeBuffer);
+            } catch (err) {
+                console.error('CRITICAL: Failed to save database to disk:', err);
+            }
+        };
+
+        const wrapper = {
+            exec: async (sql: string) => {
+                db.run(sql);
+                saveDB();
+            },
+            get: async (sql: string, ...params: any[]) => {
+                const stmt = db.prepare(sql);
+                stmt.bind(params);
+                const result = stmt.step() ? stmt.getAsObject() : undefined;
+                stmt.free();
+                return result;
+            },
+            all: async (sql: string, ...params: any[]) => {
+                const stmt = db.prepare(sql);
+                stmt.bind(params);
+                const results = [];
+                while (stmt.step()) {
+                    results.push(stmt.getAsObject());
+                }
+                stmt.free();
+                return results;
+            },
+            run: async (sql: string, ...params: any[]) => {
+                db.run(sql, params.length > 0 ? params : undefined);
+                saveDB();
+
+                // Get last inserted ID and changes
+                // sql.js exec returns an array of results for each statement
+                const lastIDResult = db.exec("SELECT last_insert_rowid() as id;");
+                const lastID = lastIDResult[0].values[0][0];
+
+                const changesResult = db.exec("SELECT changes() as changes;");
+                const changes = changesResult[0].values[0][0];
+
+                return { lastID, changes };
+            },
+            close: async () => {
+                db.close();
+            }
+        };
 
         // Define Migrations
-        await runMigrations(dbInstance);
+        await runMigrations(wrapper);
 
-        console.log('SQLite DB initialized successfully at:', dbPath);
+        dbInstance = wrapper;
+        console.log('sql.js DB initialized successfully at:', dbPath);
         return dbInstance;
     } catch (error) {
         console.error('CRITICAL: Failed to open database at', dbPath, error);
@@ -40,7 +101,7 @@ export async function initializeDB(): Promise<SQLiteDB> {
     }
 }
 
-async function runMigrations(db: SQLiteDB) {
+async function runMigrations(db: any) {
     const schema = `
 -- Users Table
 CREATE TABLE IF NOT EXISTS users (
@@ -146,7 +207,6 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 
     try {
         await db.exec(schema);
-        // console.log('Schema check passed.'); 
     } catch (error) {
         console.error('CRITICAL: Failed to apply schema', error);
         throw error;
@@ -157,12 +217,8 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         await db.exec('ALTER TABLE stylists ADD COLUMN commission_rate REAL DEFAULT 20.0;');
         console.log('Successfully added commission_rate column to stylists table');
     } catch (e: any) {
-        // Ignore "duplicate column name" errors silently for cleaner logs
-        if (!e.message || !e.message.includes('duplicate column name')) {
-            // Only log other errors
-            // console.log('Migration info:', e.message);
-        }
+        // Ignore errors if column already exists
     }
 }
 
-export const getDB = initializeDB; // Alias for backward compatibility or clarity
+export const getDB = initializeDB;
