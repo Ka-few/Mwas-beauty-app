@@ -13,11 +13,31 @@ const app = express();
 
 // Enable CORS - MUST be before routes
 app.use(cors({
-  origin: true, // Allow all origins for local desktop app usage
-  credentials: true
+  origin: (origin, callback) => {
+    // Account for Electron origins ('null', 'file://', etc)
+    if (!origin || origin === 'null' || origin.startsWith('file://')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for now during debug
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Request logging middleware for debugging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+  next();
+});
+
 app.use(express.json());
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 app.use('/api/clients', clientsRoutes);
 app.use('/api/stylists', stylistsRoutes);

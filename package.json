@@ -27,6 +27,7 @@
     "concurrently": "^9.2.1",
     "electron": "^33.2.1",
     "electron-builder": "^26.4.0",
+    "electron-rebuild": "^3.2.9",
     "esbuild": "^0.27.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
@@ -41,7 +42,8 @@
     "frontend:build": "cd frontend && npm run build",
     "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\" \"wait-on http://localhost:3000 && ELECTRON_START_URL=http://localhost:3000 electron -r ts-node/register electron/main.ts\"",
     "build": "npm run frontend:build && npm run backend:build && npm run backend:bundle && npm run electron:build",
-    "dist": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder --win --x64",
+    "rebuild": "electron-rebuild -f -w sqlite3",
     "postinstall": "electron-builder install-app-deps",
     "web": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\""
   },
@@ -49,6 +51,7 @@
     "appId": "com.mwas.desktop",
     "productName": "MwasBeauty",
     "asar": true,
+    "npmRebuild": true,
     "asarUnpack": [
       "backend/dist/**/*",
       "backend/db/schema.sql",

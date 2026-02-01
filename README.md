@@ -75,6 +75,13 @@ npm run dist
 ```
 The installers will be generated in the `dist/` directory.
 
+### 🪟 Building for Windows
+> [!IMPORTANT]
+> Because of native modules (like `sqlite3`), the Windows installer must be built on a Windows machine or via CI/CD.
+
+- **Option 1 (CI/CD):** Push your changes to the `main` branch. GitHub Actions will automatically build the Windows installer and make it available in the **Actions** tab of your repository.
+- **Option 2 (Local Windows Build):** If you are on a Windows machine, run `npm run dist`.
+
 ## License
 Confidential & Proprietary - Mwas Beauty Systems.
 

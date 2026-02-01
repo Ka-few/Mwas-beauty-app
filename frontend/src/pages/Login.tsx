@@ -12,6 +12,8 @@ export default function Login() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(''); // Clear previous errors
+
         try {
             const res = await api.post('/auth/login', { username, password });
             localStorage.setItem('user', JSON.stringify(res.data));
@@ -24,8 +26,21 @@ export default function Login() {
                 navigate(from);
             }
 
-        } catch (err) {
-            setError('Invalid credentials');
+        } catch (err: any) {
+            console.error('Login error:', err);
+
+            // Show specific error messages based on error type
+            if (err.code === 'ECONNREFUSED' || err.code === 'ERR_NETWORK') {
+                setError('Cannot connect to server. Please ensure the application is running correctly.');
+            } else if (err.code === 'ECONNABORTED') {
+                setError('Connection timeout. Please try again.');
+            } else if (err.response?.status === 401) {
+                setError('Invalid username or password');
+            } else if (err.response?.data?.message) {
+                setError(err.response.data.message);
+            } else {
+                setError(err.message || 'An error occurred. Please try again.');
+            }
         }
     };
 

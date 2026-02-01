@@ -127,7 +127,7 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true
+      webSecurity: false // Disabled for debug - rule out CORS/Protocol blocks
     },
   });
 
@@ -171,7 +171,7 @@ function createMainWindow() {
 const checkBackend = (): Promise<boolean> => {
   return new Promise((resolve) => {
     const { net } = require('electron');
-    const request = net.request('http://localhost:3001/api/auth/users'); // Use an existing endpoint to check
+    const request = net.request('http://127.0.0.1:3001/api/health'); // Use health endpoint
     request.on('response', (response: any) => {
       resolve(true); // Any response means server is up (even 401/404)
     });
