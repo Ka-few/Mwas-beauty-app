@@ -24,9 +24,11 @@ jobs:
         run: npm install
 
       - name: Build Application
-        run: npm run dist
+        run: npm run dist -- --publish never
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: true
 
       - name: Upload Installer
         uses: actions/upload-artifact@v4
