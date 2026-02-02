@@ -4,101 +4,160 @@ import fs from 'fs';
 
 let dbInstance: any = null;
 let sqlInstance: any = null;
+let initPromise: Promise<any> | null = null;
+
+// Simple lock mechanism to serialize DB operations
+let dbQueue: Promise<any> = Promise.resolve();
+
+async function enqueue<T>(op: () => Promise<T>): Promise<T> {
+    const next = dbQueue.then(op);
+    dbQueue = next.catch(() => { });
+    return next;
+}
 
 export async function initializeDB(): Promise<any> {
-    if (dbInstance) {
-        return dbInstance;
-    }
+    if (initPromise) return initPromise;
 
-    const dbPath = process.env.DB_PATH || path.join(__dirname, 'salon.db');
+    initPromise = (async () => {
+        if (dbInstance) return dbInstance;
 
-    // Ensure directory exists
-    try {
-        const dir = path.dirname(dbPath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-            console.log('Created database directory:', dir);
-        }
-    } catch (err) {
-        console.error('Failed to create database directory:', err);
-    }
+        const dbPath = process.env.DB_PATH || path.join(__dirname, 'salon.db');
 
-    try {
-        // Initialize sql.js
-        if (!sqlInstance) {
-            sqlInstance = await initSqlJs({
-                locateFile: (file) => path.join(__dirname, file)
-            });
-        }
-
-        let buffer: Uint8Array | undefined;
-        if (fs.existsSync(dbPath)) {
-            buffer = new Uint8Array(fs.readFileSync(dbPath));
-        }
-
-        const db = new sqlInstance.Database(buffer);
-
-        const saveDB = () => {
-            try {
-                const data = db.export();
-                const nodeBuffer = Buffer.from(data);
-                fs.writeFileSync(dbPath, nodeBuffer);
-            } catch (err) {
-                console.error('CRITICAL: Failed to save database to disk:', err);
+        // Ensure directory exists
+        try {
+            const dir = path.dirname(dbPath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+                console.log('Created database directory:', dir);
             }
-        };
+        } catch (err) {
+            console.error('Failed to create database directory:', err);
+        }
 
-        const wrapper = {
-            exec: async (sql: string) => {
-                db.run(sql);
-                saveDB();
-            },
-            get: async (sql: string, ...params: any[]) => {
-                const stmt = db.prepare(sql);
-                stmt.bind(params);
-                const result = stmt.step() ? stmt.getAsObject() : undefined;
-                stmt.free();
-                return result;
-            },
-            all: async (sql: string, ...params: any[]) => {
-                const stmt = db.prepare(sql);
-                stmt.bind(params);
-                const results = [];
-                while (stmt.step()) {
-                    results.push(stmt.getAsObject());
+        try {
+            // Initialize sql.js
+            if (!sqlInstance) {
+                sqlInstance = await initSqlJs({
+                    locateFile: (file) => path.join(__dirname, file)
+                });
+            }
+
+            let buffer: Uint8Array | undefined;
+            if (fs.existsSync(dbPath)) {
+                buffer = new Uint8Array(fs.readFileSync(dbPath));
+            }
+
+            const db = new sqlInstance.Database(buffer);
+
+            const saveDB = () => {
+                try {
+                    const data = db.export();
+                    const nodeBuffer = Buffer.from(data);
+                    fs.writeFileSync(dbPath, nodeBuffer);
+                } catch (err) {
+                    console.error('CRITICAL: Failed to save database to disk:', err);
                 }
-                stmt.free();
-                return results;
-            },
-            run: async (sql: string, ...params: any[]) => {
-                db.run(sql, params.length > 0 ? params : undefined);
-                saveDB();
+            };
 
-                // Get last inserted ID and changes
-                // sql.js exec returns an array of results for each statement
-                const lastIDResult = db.exec("SELECT last_insert_rowid() as id;");
-                const lastID = lastIDResult[0].values[0][0];
+            const wrapper = {
+                exec: (sql: string) => enqueue(async () => {
+                    db.run(sql);
+                    saveDB();
+                }),
+                get: (sql: string, ...params: any[]) => enqueue(async () => {
+                    const stmt = db.prepare(sql);
+                    if (params.length > 0) stmt.bind(params);
+                    const result = stmt.step() ? stmt.getAsObject() : undefined;
+                    stmt.free();
+                    return result;
+                }),
+                all: (sql: string, ...params: any[]) => enqueue(async () => {
+                    const stmt = db.prepare(sql);
+                    if (params.length > 0) stmt.bind(params);
+                    const results = [];
+                    while (stmt.step()) {
+                        results.push(stmt.getAsObject());
+                    }
+                    stmt.free();
+                    return results;
+                }),
+                run: (sql: string, ...params: any[]) => enqueue(async () => {
+                    if (params.length > 0) {
+                        db.run(sql, params);
+                    } else {
+                        db.run(sql);
+                    }
+                    saveDB();
 
-                const changesResult = db.exec("SELECT changes() as changes;");
-                const changes = changesResult[0].values[0][0];
+                    let lastID = 0;
+                    let changes = 0;
+                    try {
+                        const lastIDResult = db.exec("SELECT last_insert_rowid() as id;");
+                        if (lastIDResult && lastIDResult.length > 0 && lastIDResult[0].values.length > 0) {
+                            lastID = lastIDResult[0].values[0][0] as number;
+                        }
 
-                return { lastID, changes };
-            },
-            close: async () => {
-                db.close();
-            }
-        };
+                        const changesResult = db.exec("SELECT changes() as changes;");
+                        if (changesResult && changesResult.length > 0 && changesResult[0].values.length > 0) {
+                            changes = changesResult[0].values[0][0] as number;
+                        }
+                    } catch (e) {
+                        // Ignore metadata fetch errors
+                    }
 
-        // Define Migrations
-        await runMigrations(wrapper);
+                    return { lastID, changes };
+                }),
+                transaction: async (work: (tx: any) => Promise<any>) => enqueue(async () => {
+                    try {
+                        db.run('BEGIN TRANSACTION');
+                        // Use a restricted nested wrapper for transaction safety
+                        const txWrapper = {
+                            run: async (sql: string, ...params: any[]) => {
+                                db.run(sql, params.length > 0 ? params : undefined);
+                                return {
+                                    get lastID() {
+                                        const res = db.exec("SELECT last_insert_rowid();");
+                                        return res[0].values[0][0];
+                                    }
+                                };
+                            },
+                            exec: async (sql: string) => db.run(sql),
+                            get: async (sql: string, ...params: any[]) => {
+                                const stmt = db.prepare(sql);
+                                if (params.length > 0) stmt.bind(params);
+                                const result = stmt.step() ? stmt.getAsObject() : undefined;
+                                stmt.free();
+                                return result;
+                            }
+                        };
+                        const result = await work(txWrapper);
+                        db.run('COMMIT');
+                        saveDB();
+                        return result;
+                    } catch (err) {
+                        try { db.run('ROLLBACK'); } catch (e) { }
+                        throw err;
+                    }
+                }),
+                close: async () => {
+                    db.close();
+                }
+            };
 
-        dbInstance = wrapper;
-        console.log('sql.js DB initialized successfully at:', dbPath);
-        return dbInstance;
-    } catch (error) {
-        console.error('CRITICAL: Failed to open database at', dbPath, error);
-        throw error;
-    }
+            // Define Migrations
+            await runMigrations(wrapper);
+
+            dbInstance = wrapper;
+            console.log('sql.js DB initialized successfully at:', dbPath);
+            return dbInstance;
+        } catch (error) {
+            console.error('CRITICAL: Failed to open database at', dbPath, error);
+            initPromise = null; // Reset for retry
+            throw error;
+        }
+    })();
+
+    return initPromise;
 }
 
 async function runMigrations(db: any) {
