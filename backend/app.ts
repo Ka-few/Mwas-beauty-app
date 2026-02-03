@@ -28,7 +28,8 @@ app.use(cors({
 
 // Request logging middleware for debugging
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+  const origin = req.headers.origin || 'Direct/Proxy';
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${origin}`);
   next();
 });
 

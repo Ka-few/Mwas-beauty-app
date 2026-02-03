@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useToast } from '../components/ui/Toast';
-import { getSales, addSale } from '../services/sales.api';
+import { getSales, addSale, completeSale, getSaleDetails } from '../services/sales.api';
 import { getClients } from '../services/clients.api';
 import { getServices } from '../services/services.api';
 import { getProducts } from '../services/products.api';
@@ -28,6 +28,9 @@ export default function Sales() {
   const [selectedServices, setSelectedServices] = useState<any[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Mpesa'>('Cash');
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [mpesaCode, setMpesaCode] = useState('');
+  const [selectedSaleForPayment, setSelectedSaleForPayment] = useState<any>(null);
 
   const fetchAll = async () => {
     try {
@@ -85,7 +88,7 @@ export default function Sales() {
     ));
   };
 
-  const handleAddSale = async () => {
+  const handleRecordSale = async (isPending: boolean) => {
     if (!selectedClient) {
       showToast('Please select a client', 'error');
       return;
@@ -96,33 +99,80 @@ export default function Sales() {
       return;
     }
 
+    if (!isPending && paymentMethod === 'Mpesa' && !mpesaCode) {
+      setIsPaymentModalOpen(true);
+      return;
+    }
+
     try {
-      const response = await addSale({
+      const saleData = {
         client_id: selectedClient,
-        payment_method: paymentMethod,
-        services: selectedServices,
-        products: selectedProducts
-      });
+        payment_method: isPending ? 'PENDING' : paymentMethod,
+        status: isPending ? 'PENDING' : 'COMPLETED',
+        services: selectedServices.map(s => ({ service_id: s.service_id, stylist_id: s.stylist_id, price: s.price })),
+        products: selectedProducts.map(p => ({ product_id: p.product_id, quantity: p.quantity, selling_price: p.selling_price })),
+        mpesa_code: (!isPending && paymentMethod === 'Mpesa') ? mpesaCode : null
+      };
+
+      const response = await addSale(saleData);
+
+      // Print receipt
+      printReceipt(
+        response.sale_id,
+        response.totalAmount,
+        selectedServices,
+        selectedProducts,
+        isPending ? 'PENDING' : paymentMethod
+      );
 
       // Reset form
       setSelectedClient(null);
       setSelectedServices([]);
       setSelectedProducts([]);
       setPaymentMethod('Cash');
+      setMpesaCode('');
+      setIsPaymentModalOpen(false);
 
       // Refresh data
       fetchAll();
 
-      showToast('Sale completed successfully!', 'success');
-
-      // Ask to print receipt
-      if (confirm('Sale recorded! Do you want to print the receipt?')) {
-        printReceipt(response.sale_id, response.totalAmount, selectedServices, selectedProducts, paymentMethod);
-      }
+      showToast(isPending ? 'Billing recorded and receipt generated!' : 'Sale completed successfully!', 'success');
 
     } catch (error) {
       console.error("Sale Error", error);
       showToast('Failed to record sale.', 'error');
+    }
+  };
+
+  const handleCompleteExistingSale = async (sale: any) => {
+    setSelectedSaleForPayment(sale);
+    setIsPaymentModalOpen(true);
+  };
+
+  const submitPayment = async () => {
+    if (paymentMethod === 'Mpesa' && !mpesaCode) {
+      showToast('M-Pesa confirmation code is required', 'error');
+      return;
+    }
+
+    try {
+      if (selectedSaleForPayment) {
+        // Completing an existing pending sale
+        await completeSale(selectedSaleForPayment.id, {
+          payment_method: paymentMethod,
+          mpesa_code: paymentMethod === 'Mpesa' ? mpesaCode : null
+        });
+        showToast('Payment completed!', 'success');
+        setSelectedSaleForPayment(null);
+      } else {
+        // Completing a new sale from scratch
+        await handleRecordSale(false);
+      }
+      setIsPaymentModalOpen(false);
+      setMpesaCode('');
+      fetchAll();
+    } catch (error) {
+      showToast('Failed to complete payment', 'error');
     }
   };
 
@@ -394,8 +444,9 @@ export default function Sales() {
         </div>
       </div>
 
-      <div className="mt-8 flex justify-end">
-        <button onClick={handleAddSale} className="btn-gold text-lg px-8 py-3 shadow-lg transform hover:scale-105 transition-transform font-bold text-purple-900">Complete Sale</button>
+      <div className="mt-8 flex justify-end gap-4">
+        <button onClick={() => handleRecordSale(true)} className="bg-purple-600 hover:bg-purple-700 text-white text-lg px-8 py-3 rounded shadow-lg transform hover:scale-105 transition-transform font-bold">Billing (Pending)</button>
+        <button onClick={() => handleRecordSale(false)} className="btn-gold text-lg px-8 py-3 shadow-lg transform hover:scale-105 transition-transform font-bold text-purple-900">Complete Sale</button>
       </div>
 
       <div className="mt-6">
@@ -456,10 +507,95 @@ export default function Sales() {
           </div>
         </div>
         <DataTable
-          columns={['id', 'client_id', 'total_amount', 'payment_method', 'status']}
-          data={sales}
+          columns={['id', 'client_name', 'total_amount', 'payment_method', 'status']}
+          data={sales.map(s => ({
+            ...s,
+            client_name: clients.find(c => c.id === s.client_id)?.name || 'Walk-in'
+          }))}
+          actions={(row) => (
+            <div className="flex gap-2">
+              {row.status === 'PENDING' && (
+                <button
+                  onClick={() => handleCompleteExistingSale(row)}
+                  className="bg-gold-500 hover:bg-gold-600 text-purple-900 px-2 py-1 rounded text-xs font-bold"
+                >
+                  Complete Payment
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  getSaleDetails(row.id).then(details => {
+                    printReceipt(details.id, details.total_amount, details.services, details.products, details.payment_method);
+                  });
+                }}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs font-bold"
+              >
+                Print Receipt
+              </button>
+            </div>
+          )}
         />
       </div>
+
+      {/* Payment Confirmation Modal */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div className="bg-purple-900 p-4 text-white flex justify-between items-center">
+              <h3 className="font-bold text-lg">Confirm Payment</h3>
+              <button onClick={() => { setIsPaymentModalOpen(false); setSelectedSaleForPayment(null); }} className="text-white hover:text-gold-400">&times;</button>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-600 mb-4">
+                {selectedSaleForPayment
+                  ? `Completing payment for Sale #${selectedSaleForPayment.id} (KES ${selectedSaleForPayment.total_amount.toLocaleString()})`
+                  : 'Complete the current sale transaction.'}
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-gray-700 font-bold mb-2">Payment Method</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e: any) => setPaymentMethod(e.target.value)}
+                  className="border p-2 rounded w-full bg-gray-50 focus:ring-2 focus:ring-purple-500 outline-none"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="Mpesa">Mpesa</option>
+                </select>
+              </div>
+
+              {paymentMethod === 'Mpesa' && (
+                <div className="mb-6 animate-in slide-in-from-top duration-300">
+                  <label className="block text-gray-700 font-bold mb-2">M-Pesa Confirmation Code</label>
+                  <input
+                    type="text"
+                    placeholder="Enter code (e.g. SGR8ABC123)"
+                    value={mpesaCode}
+                    onChange={(e) => setMpesaCode(e.target.value.toUpperCase())}
+                    className="border p-2 rounded w-full bg-white focus:ring-2 focus:ring-purple-500 outline-none uppercase font-mono"
+                    autoFocus
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => { setIsPaymentModalOpen(false); setSelectedSaleForPayment(null); }}
+                  className="flex-1 border border-gray-300 py-3 rounded font-bold text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitPayment}
+                  className="flex-1 bg-gold-500 hover:bg-gold-600 text-purple-900 py-3 rounded font-bold shadow-md transform active:scale-95 transition-all text-center"
+                >
+                  Confirm & Complete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

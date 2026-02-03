@@ -225,6 +225,7 @@ client_id INTEGER,
 total_amount REAL NOT NULL,
 payment_method TEXT NOT NULL,
 status TEXT DEFAULT 'COMPLETED',
+mpesa_code TEXT,
 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 FOREIGN KEY (client_id) REFERENCES clients(id)
 );
@@ -275,6 +276,14 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     try {
         await db.exec('ALTER TABLE stylists ADD COLUMN commission_rate REAL DEFAULT 20.0;');
         console.log('Successfully added commission_rate column to stylists table');
+    } catch (e: any) {
+        // Ignore errors if column already exists
+    }
+
+    // 3. Safe migration: Add mpesa_code if missing from old tables
+    try {
+        await db.exec('ALTER TABLE sales ADD COLUMN mpesa_code TEXT;');
+        console.log('Successfully added mpesa_code column to sales table');
     } catch (e: any) {
         // Ignore errors if column already exists
     }

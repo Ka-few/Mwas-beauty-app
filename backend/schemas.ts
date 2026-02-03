@@ -10,9 +10,10 @@ export const createClientSchema = z.object({
 
 export const createSaleSchema = z.object({
     body: z.object({
-        client_id: z.number().int().optional(),
-        payment_method: z.enum(['Cash', 'Mpesa', 'Card', 'Other']),
-        status: z.string().optional(),
+        client_id: z.number().int().nullable().optional(),
+        payment_method: z.enum(['Cash', 'Mpesa', 'Card', 'Other', 'PENDING']),
+        status: z.string().nullable().optional(),
+        mpesa_code: z.string().nullable().optional(),
         services: z.array(z.object({
             service_id: z.number().int(),
             stylist_id: z.number().int(),

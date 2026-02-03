@@ -31,11 +31,12 @@ export async function addSale(req: Request, res: Response) {
     const { sale_id, totalAmount } = await db.transaction(async (tx: any) => {
       // Insert sale
       const result = await tx.run(
-        'INSERT INTO sales (client_id, total_amount, payment_method, status) VALUES (?, ?, ?, ?)',
+        'INSERT INTO sales (client_id, total_amount, payment_method, status, mpesa_code) VALUES (?, ?, ?, ?, ?)',
         client_id || null,
         0, // temp total
-        payment_method,
-        status || 'COMPLETED'
+        payment_method || 'PENDING',
+        status || 'PENDING',
+        req.body.mpesa_code || null
       );
       const sale_id = result.lastID;
 
@@ -309,5 +310,69 @@ export async function getReports(req: Request, res: Response) {
   } catch (error) {
     console.error('Reports Error:', error);
     res.status(500).json({ message: 'Failed to generate reports' });
+  }
+}
+
+export async function completeSale(req: Request, res: Response) {
+  const { id } = req.params;
+  const { payment_method, mpesa_code } = req.body;
+
+  if (!payment_method) {
+    res.status(400).json({ message: 'Payment method is required' });
+    return;
+  }
+
+  const db = await initializeDB();
+  try {
+    await db.run(
+      'UPDATE sales SET payment_method = ?, mpesa_code = ?, status = ? WHERE id = ?',
+      payment_method,
+      mpesa_code || null,
+      'COMPLETED',
+      id
+    );
+    res.json({ message: 'Sale completed successfully' });
+  } catch (error) {
+    console.error('Error completing sale:', error);
+    res.status(500).json({ message: 'Error completing sale' });
+  }
+}
+
+export async function getSaleDetails(req: Request, res: Response) {
+  const { id } = req.params;
+  const db = await initializeDB();
+
+  try {
+    const sale = await db.get(`
+      SELECT s.*, c.name as client_name, c.phone as client_phone 
+      FROM sales s 
+      LEFT JOIN clients c ON s.client_id = c.id 
+      WHERE s.id = ?
+    `, id);
+
+    if (!sale) {
+      res.status(404).json({ message: 'Sale not found' });
+      return;
+    }
+
+    const services = await db.all(`
+      SELECT ss.*, ser.name as service_name, sty.name as stylist_name 
+      FROM sale_services ss
+      JOIN services ser ON ss.service_id = ser.id
+      JOIN stylists sty ON ss.stylist_id = sty.id
+      WHERE ss.sale_id = ?
+    `, id);
+
+    const products = await db.all(`
+      SELECT sp.*, p.name as product_name 
+      FROM sale_products sp
+      JOIN products p ON sp.product_id = p.id
+      WHERE sp.sale_id = ?
+    `, id);
+
+    res.json({ ...sale, services, products });
+  } catch (error) {
+    console.error('Error fetching sale details:', error);
+    res.status(500).json({ message: 'Error fetching sale details' });
   }
 }

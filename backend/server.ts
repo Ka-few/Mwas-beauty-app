@@ -5,8 +5,11 @@ const HOST = '0.0.0.0'; // Bind to all interfaces for maximum reachability durin
 
 const server = app.listen(PORT, HOST, () => {
     const addr = server.address();
-    const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port} on ${addr?.address}`;
+    const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port || PORT} on ${addr?.address || HOST}`;
     console.log(`[BACKEND] Listening on ${bind}`);
     console.log(`[BACKEND] Use http://127.0.0.1:${PORT} or http://localhost:${PORT}`);
     console.log(`[BACKEND] Environment: ${process.env.NODE_ENV || 'development'}`);
+}).on('error', (err) => {
+    console.error('[CRITICAL] Server error:', err);
+    process.exit(1);
 });
