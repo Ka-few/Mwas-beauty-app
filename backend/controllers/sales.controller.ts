@@ -131,13 +131,26 @@ export async function getAnalytics(req: Request, res: Response) {
       ORDER BY date(created_at) ASC
     `);
 
+    // Daily Sales (Today)
+    const dailySales = await db.get(`
+      SELECT 
+        COUNT(*) as count,
+        COALESCE(SUM(total_amount), 0) as revenue
+      FROM sales
+      WHERE date(created_at) = date('now', 'localtime')
+    `) as any;
+
     res.json({
       stylistPerformance: stylistStats.map((s: any) => ({
         ...s,
         commission_earned: (s.total_revenue * (s.commission_rate || 20)) / 100
       })),
       topProducts: productStats,
-      salesOverTime
+      salesOverTime,
+      dailySales: {
+        count: dailySales?.count || 0,
+        revenue: dailySales?.revenue || 0
+      }
     });
 
   } catch (error) {
@@ -174,8 +187,8 @@ export async function getReports(req: Request, res: Response) {
             SELECT COALESCE(SUM((sp.selling_price - COALESCE(p.cost_price, 0)) * sp.quantity), 0) as profit
             FROM sale_products sp
             JOIN products p ON sp.product_id = p.id
-            JOIN sales ON sp.sale_id = sales.id
-            ${dateFilter}
+            JOIN sales sa ON sp.sale_id = sa.id
+            ${dateFilter ? dateFilter.replace('sales.created_at', 'sa.created_at') : ''}
         `, ...params) as any;
     const productProfit = productProfitResult?.profit || 0;
 
@@ -186,8 +199,8 @@ export async function getReports(req: Request, res: Response) {
                 COALESCE(SUM(ss.price * (COALESCE(s.commission_rate, 20) / 100.0)), 0) as total_commissions
             FROM sale_services ss
             JOIN stylists s ON ss.stylist_id = s.id
-            JOIN sales ON ss.sale_id = sales.id
-            ${dateFilter}
+            JOIN sales sa ON ss.sale_id = sa.id
+            ${dateFilter ? dateFilter.replace('sales.created_at', 'sa.created_at') : ''}
         `, ...params) as any;
 
     const grossServiceRevenue = serviceFinancials?.gross_service_revenue || 0;
@@ -231,12 +244,12 @@ export async function getReports(req: Request, res: Response) {
     // Let's fetch Service Revenue per day to be precise
     const dailyServices = await db.all(`
             SELECT 
-                date(sales.created_at) as date,
+                date(sa.created_at) as date,
                 COALESCE(SUM(ss.price), 0) as service_revenue
             FROM sale_services ss
-            JOIN sales ON ss.sale_id = sales.id
-            ${dateFilter}
-            GROUP BY date(sales.created_at)
+            JOIN sales sa ON ss.sale_id = sa.id
+            ${dateFilter ? dateFilter.replace('sales.created_at', 'sa.created_at') : ''}
+            GROUP BY date(sa.created_at)
         `, ...params);
 
     const serviceRevMap = new Map(dailyServices.map((d: any) => [d.date, d.service_revenue]));
@@ -280,18 +293,18 @@ export async function getReports(req: Request, res: Response) {
       };
     });
 
-    // 5. Daily Commissions (Today) - Keep existing functionality just in case
-    const dailyCommissions = await db.all(`
+    // 5. Commission Payouts (Filtered by date range)
+    const periodCommissions = await db.all(`
             SELECT 
                 s.name,
                 COALESCE(SUM(ss.price * (COALESCE(s.commission_rate, 20) / 100.0)), 0) as commission
             FROM stylists s
             JOIN sale_services ss ON s.id = ss.stylist_id
             JOIN sales sa ON ss.sale_id = sa.id
-            WHERE date(sa.created_at) = date('now', 'localtime')
+            ${dateFilter ? dateFilter.replace('sales.created_at', 'sa.created_at') : ''}
             GROUP BY s.id
             HAVING commission > 0
-        `);
+        `, ...params);
 
     res.json({
       summary: {
@@ -304,7 +317,7 @@ export async function getReports(req: Request, res: Response) {
         totalNetIncome: productProfit + serviceNetIncome - totalExpenses
       },
       daily: finalDailyReports,
-      todayCommissions: dailyCommissions
+      periodCommissions: periodCommissions
     });
 
   } catch (error) {

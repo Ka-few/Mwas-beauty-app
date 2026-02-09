@@ -6,9 +6,10 @@ import logoImg from '../assets/logo.png';
 
 
 export default function Reports() {
+    const today = new Date().toISOString().split('T')[0];
     const [reports, setReports] = useState<any>(null);
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+    const [startDate, setStartDate] = useState(today);
+    const [endDate, setEndDate] = useState(today);
 
     const fetchReports = () => {
         getReports(startDate, endDate).then(setReports).catch(console.error);
@@ -118,7 +119,7 @@ export default function Reports() {
 
 
     const exportCommissionsPDF = () => {
-        if (!reports || !reports.todayCommissions) return;
+        if (!reports || !reports.periodCommissions) return;
 
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
@@ -135,16 +136,17 @@ export default function Reports() {
         doc.text("MWAS BEAUTY", pageWidth / 2, 45, { align: 'center' });
         doc.setFontSize(12);
         doc.setTextColor(50);
-        doc.text("Daily Commissions Payout", pageWidth / 2, 52, { align: 'center' });
+        doc.text("Stylist Commissions Payout", pageWidth / 2, 52, { align: 'center' });
         doc.setFontSize(10);
         doc.setTextColor(100);
-        doc.text(`Date: ${new Date().toLocaleDateString()}`, pageWidth / 2, 58, { align: 'center' });
+        const periodText = `Period: ${startDate || 'Start'} to ${endDate || 'Present'}`;
+        doc.text(periodText, pageWidth / 2, 58, { align: 'center' });
 
         const tableColumn = ["Stylist Name", "Commission Amount", "Signature"];
         const tableRows: any[] = [];
         let total = 0;
 
-        reports.todayCommissions.forEach((c: any) => {
+        reports.periodCommissions.forEach((c: any) => {
             const rowData = [
                 c.name,
                 c.commission.toLocaleString(),
@@ -168,12 +170,12 @@ export default function Reports() {
             }
         });
 
-        doc.save(`commissions_payout_${new Date().toISOString().split('T')[0]}.pdf`);
+        doc.save(`commissions_payout_${startDate || 'all'}_${endDate || 'all'}.pdf`);
     };
 
     if (!reports) return <div className="p-8">Loading reports...</div>;
 
-    const { summary, daily, todayCommissions } = reports;
+    const { summary, daily, periodCommissions } = reports;
 
     return (
         <div className="p-8 pb-20">
@@ -280,12 +282,17 @@ export default function Reports() {
                 </div>
             </div>
 
-            {/* Daily Payouts / Commissions (Today) */}
+            {/* Commission Payouts (Filtered by date range) */}
             <div className="bg-white p-8 rounded-xl shadow-md border-t-4 border-gold-500">
                 <div className="flex justify-between items-center mb-6">
                     <div>
-                        <h2 className="text-2xl font-bold text-purple-900">Today's Stylist Payouts</h2>
-                        <p className="text-gray-500 italic">Expected commissions to be paid out by end of day ({new Date().toLocaleDateString()})</p>
+                        <h2 className="text-2xl font-bold text-purple-900">Stylist Commission Payouts</h2>
+                        <p className="text-gray-500 italic">
+                            {startDate || endDate
+                                ? `Commissions for period: ${startDate || 'Start'} to ${endDate || 'Present'}`
+                                : 'All-time commissions to be paid out'
+                            }
+                        </p>
                     </div>
                     <button onClick={exportCommissionsPDF} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700 shadow flex items-center gap-2">
                         Export Payout Sheet
@@ -293,14 +300,14 @@ export default function Reports() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {todayCommissions && todayCommissions.map((c: any) => (
+                    {periodCommissions && periodCommissions.map((c: any) => (
                         <div key={c.name} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gold-300 transition-colors">
                             <span className="font-bold text-gray-700">{c.name}</span>
                             <span className="text-lg font-bold text-purple-700">KES {c.commission.toLocaleString()}</span>
                         </div>
                     ))}
-                    {(!todayCommissions || todayCommissions.length === 0) && (
-                        <p className="text-gray-400 italic col-span-full py-4 text-center bg-gray-50 rounded">No service sales recorded for today yet.</p>
+                    {(!periodCommissions || periodCommissions.length === 0) && (
+                        <p className="text-gray-400 italic col-span-full py-4 text-center bg-gray-50 rounded">No service sales recorded for this period.</p>
                     )}
                 </div>
             </div>

@@ -42,7 +42,7 @@ export default function Dashboard() {
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8 text-purple-900 border-b-4 border-gold-500 inline-block pb-2">Salon Dashboard</h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-10">
         <div className="bg-purple-800 text-white p-6 rounded-xl shadow-lg transform hover:scale-105 transition-transform duration-200 border border-purple-700">
           <h2 className="text-lg font-medium text-purple-200 uppercase tracking-wide">Clients</h2>
           <p className="text-4xl font-bold text-gold-400 mt-2">{stats.clients}</p>
@@ -59,8 +59,13 @@ export default function Dashboard() {
           <h2 className="text-lg font-medium text-purple-600 uppercase tracking-wide">Products</h2>
           <p className="text-4xl font-bold text-purple-900 mt-2">{stats.products}</p>
         </div>
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg transform hover:scale-105 transition-transform duration-200">
+          <h2 className="text-lg font-bold uppercase tracking-wide">Daily Sales</h2>
+          <p className="text-4xl font-bold mt-2">{analytics.dailySales?.count || 0}</p>
+          <p className="text-sm mt-1 opacity-90">KES {(analytics.dailySales?.revenue || 0).toLocaleString()}</p>
+        </div>
         <div className="bg-gold-500 text-purple-900 p-6 rounded-xl shadow-lg transform hover:scale-105 transition-transform duration-200">
-          <h2 className="text-lg font-bold text-purple-900 uppercase tracking-wide">Sales</h2>
+          <h2 className="text-lg font-bold text-purple-900 uppercase tracking-wide">Total Sales</h2>
           <p className="text-4xl font-bold mt-2">{stats.sales}</p>
         </div>
       </div>

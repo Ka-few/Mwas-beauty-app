@@ -61,6 +61,7 @@ client_id INTEGER,
 total_amount REAL NOT NULL,
 payment_method TEXT NOT NULL,
 status TEXT DEFAULT 'COMPLETED',
+mpesa_code TEXT,
 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 FOREIGN KEY (client_id) REFERENCES clients(id)
 );
