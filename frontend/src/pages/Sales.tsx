@@ -162,7 +162,24 @@ export default function Sales() {
           payment_method: paymentMethod,
           mpesa_code: paymentMethod === 'Mpesa' ? mpesaCode : null
         });
-        showToast('Payment completed!', 'success');
+
+        // Fetch full details and print receipt after completion
+        try {
+          const details = await getSaleDetails(selectedSaleForPayment.id);
+          printReceipt(
+            details.id,
+            details.total_amount,
+            details.services,
+            details.products,
+            details.payment_method,
+            details.client_name
+          );
+        } catch (printErr) {
+          console.error("Failed to print receipt after completion", printErr);
+          // Don't block the success toast for printing errors
+        }
+
+        showToast('Payment completed and receipt generated!', 'success');
         setSelectedSaleForPayment(null);
       } else {
         // Completing a new sale from scratch
@@ -177,10 +194,12 @@ export default function Sales() {
   };
 
 
-  const printReceipt = (saleId: number, total: number, servicesList: any[], productsList: any[], method: string) => {
-    const clientName = clients.find(c => c.id === selectedClient)?.name || 'Walk-in Client';
+  const printReceipt = (saleId: number, total: number, servicesList: any[], productsList: any[], method: string, clientNameOverride?: string) => {
+    const clientName = clientNameOverride || clients.find(c => c.id === selectedClient)?.name || 'Walk-in Client';
     const date = new Date().toLocaleString();
-    const logoUrl = window.location.origin + logoImg;
+
+    // Support both dev server and production paths
+    const logoUrl = logoImg.startsWith('http') ? logoImg : window.location.origin + (logoImg.startsWith('/') ? '' : '/') + logoImg;
 
     const receiptContent = `
         <html>
@@ -276,6 +295,13 @@ export default function Sales() {
               <p>Thank you for visiting!</p>
               <p>Karibu Tena</p>
             </div>
+
+            <script>
+              window.onload = function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              };
+            </script>
           </body>
         </html>
       `;
@@ -285,8 +311,6 @@ export default function Sales() {
       printWindow.document.write(receiptContent);
       printWindow.document.close();
       printWindow.focus();
-      printWindow.print();
-      printWindow.close();
     }
   };
 
@@ -525,7 +549,7 @@ export default function Sales() {
               <button
                 onClick={() => {
                   getSaleDetails(row.id).then(details => {
-                    printReceipt(details.id, details.total_amount, details.services, details.products, details.payment_method);
+                    printReceipt(details.id, details.total_amount, details.services, details.products, details.payment_method, details.client_name);
                   });
                 }}
                 className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs font-bold"

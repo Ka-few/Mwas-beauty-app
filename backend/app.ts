@@ -8,6 +8,8 @@ import productsRoutes from './routes/products.routes';
 import salesRoutes from './routes/sales.routes';
 import authRoutes from './routes/auth.routes';
 import expensesRoutes from './routes/expenses.routes';
+import licenseRoutes from './routes/license.routes';
+import { checkLicense } from './middleware/license.middleware';
 
 const app = express();
 
@@ -39,6 +41,12 @@ app.use(express.json());
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// License routes (Exempt from full check)
+app.use('/api/license', licenseRoutes);
+
+// Apply license check to all following routes
+app.use(checkLicense);
 
 app.use('/api/clients', clientsRoutes);
 app.use('/api/stylists', stylistsRoutes);

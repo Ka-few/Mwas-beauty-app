@@ -43,7 +43,9 @@
     "build": "npm run frontend:build && npm run backend:build && npm run backend:bundle && npm run electron:build",
     "dist": "npm run build && electron-builder --win --x64",
     "postinstall": "electron-builder install-app-deps",
-    "web": "concurrently \"npm run backend:dev\" \"wait-on http://127.0.0.1:3001/api/health && npm run frontend:dev\""
+    "web": "concurrently \"npm run backend:dev\" \"wait-on http://127.0.0.1:3001/api/health && npm run frontend:dev\"",
+    "license:reset": "cd backend && ts-node scripts/license-test.ts reset",
+    "license:expire": "cd backend && ts-node scripts/license-test.ts expire"
   },
   "build": {
     "appId": "com.mwas.desktop",

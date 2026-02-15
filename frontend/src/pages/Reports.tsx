@@ -3,9 +3,13 @@ import { getReports } from '../services/sales.api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logoImg from '../assets/logo.png';
+import { useLicense } from '../context/LicenseContext';
 
 
 export default function Reports() {
+    const { isFeatureAllowed } = useLicense();
+    const isTrial = !isFeatureAllowed('FULL_REPORTS');
+
     const today = new Date().toISOString().split('T')[0];
     const [reports, setReports] = useState<any>(null);
     const [startDate, setStartDate] = useState(today);
@@ -200,87 +204,91 @@ export default function Reports() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                {/* Total Revenue */}
-                <div className="bg-purple-900 text-gold-400 p-6 rounded-xl shadow-lg border border-gold-500 relative overflow-hidden">
-                    <div className="relative z-10">
-                        <h2 className="text-lg font-medium text-purple-200 uppercase tracking-wide mb-2">Total Gross Revenue</h2>
-                        <p className="text-4xl font-bold">KES {summary?.totalRevenue.toLocaleString()}</p>
+            {!isTrial && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                    {/* Total Revenue */}
+                    <div className="bg-purple-900 text-gold-400 p-6 rounded-xl shadow-lg border border-gold-500 relative overflow-hidden">
+                        <div className="relative z-10">
+                            <h2 className="text-lg font-medium text-purple-200 uppercase tracking-wide mb-2">Total Gross Revenue</h2>
+                            <p className="text-4xl font-bold">KES {summary?.totalRevenue.toLocaleString()}</p>
+                        </div>
+                    </div>
+
+                    {/* Total Profit (Net Income) */}
+                    <div className="bg-gradient-to-br from-gold-400 to-gold-600 text-purple-900 p-6 rounded-xl shadow-lg">
+                        <h2 className="text-lg font-bold uppercase tracking-wide mb-2">Total Net Profit</h2>
+                        <p className="text-4xl font-bold">KES {summary?.totalNetIncome.toLocaleString()}</p>
+                        <div className="flex gap-4 mt-2 text-sm font-semibold opacity-80">
+                            <span>Prod: {summary?.productProfit.toLocaleString()}</span>
+                            <span>|</span>
+                            <span>Svc: {summary?.serviceNetIncome.toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    {/* Commissions Paid */}
+                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col justify-center">
+                        <p className="text-gray-500 text-sm uppercase font-bold">Commissions Paid</p>
+                        <p className="text-2xl font-bold text-red-500 mb-2">KES {summary?.totalCommissions.toLocaleString()}</p>
+                        <p className="text-gray-400 text-xs">Paid to stylists/technicians</p>
+                    </div>
+
+                    {/* Total Expenses */}
+                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col justify-center">
+                        <p className="text-gray-500 text-sm uppercase font-bold">Total Expenses</p>
+                        <p className="text-2xl font-bold text-orange-600 mb-2">KES {summary?.totalExpenses?.toLocaleString() || '0'}</p>
+                        <p className="text-gray-400 text-xs">Operating expenses</p>
                     </div>
                 </div>
-
-                {/* Total Profit (Net Income) */}
-                <div className="bg-gradient-to-br from-gold-400 to-gold-600 text-purple-900 p-6 rounded-xl shadow-lg">
-                    <h2 className="text-lg font-bold uppercase tracking-wide mb-2">Total Net Profit</h2>
-                    <p className="text-4xl font-bold">KES {summary?.totalNetIncome.toLocaleString()}</p>
-                    <div className="flex gap-4 mt-2 text-sm font-semibold opacity-80">
-                        <span>Prod: {summary?.productProfit.toLocaleString()}</span>
-                        <span>|</span>
-                        <span>Svc: {summary?.serviceNetIncome.toLocaleString()}</span>
-                    </div>
-                </div>
-
-                {/* Commissions Paid */}
-                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col justify-center">
-                    <p className="text-gray-500 text-sm uppercase font-bold">Commissions Paid</p>
-                    <p className="text-2xl font-bold text-red-500 mb-2">KES {summary?.totalCommissions.toLocaleString()}</p>
-                    <p className="text-gray-400 text-xs">Paid to stylists/technicians</p>
-                </div>
-
-                {/* Total Expenses */}
-                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col justify-center">
-                    <p className="text-gray-500 text-sm uppercase font-bold">Total Expenses</p>
-                    <p className="text-2xl font-bold text-orange-600 mb-2">KES {summary?.totalExpenses?.toLocaleString() || '0'}</p>
-                    <p className="text-gray-400 text-xs">Operating expenses</p>
-                </div>
-            </div>
+            )}
 
             {/* Daily Reports Table */}
-            <div className="bg-white rounded-xl shadow-md border border-gray-100 mb-10 overflow-hidden">
-                <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
-                    <h2 className="text-xl font-bold text-purple-900">Daily Breakdown</h2>
-                    <div className="flex gap-2">
-                        <button onClick={exportCSV} className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-green-700">
-                            CSV
-                        </button>
-                        <button onClick={exportPDF} className="flex items-center gap-2 bg-red-600 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-red-700">
-                            PDF
-                        </button>
+            {!isTrial && (
+                <div className="bg-white rounded-xl shadow-md border border-gray-100 mb-10 overflow-hidden">
+                    <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
+                        <h2 className="text-xl font-bold text-purple-900">Daily Breakdown</h2>
+                        <div className="flex gap-2">
+                            <button onClick={exportCSV} className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-green-700">
+                                CSV
+                            </button>
+                            <button onClick={exportPDF} className="flex items-center gap-2 bg-red-600 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-red-700">
+                                PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-100 text-gray-600 uppercase text-xs font-bold">
+                                <tr>
+                                    <th className="p-4">Date</th>
+                                    <th className="p-4 text-right">Gross Rev.</th>
+                                    <th className="p-4 text-right">Prod. Profit</th>
+                                    <th className="p-4 text-right">Commissions</th>
+                                    <th className="p-4 text-right">Expenses</th>
+                                    <th className="p-4 text-right bg-purple-100 text-purple-900">Net Income</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {daily && daily.map((day: any) => (
+                                    <tr key={day.date} className="hover:bg-gray-50">
+                                        <td className="p-4 font-medium text-gray-800">{new Date(day.date).toDateString()}</td>
+                                        <td className="p-4 text-right text-gray-600">{day.grossRevenue.toLocaleString()}</td>
+                                        <td className="p-4 text-right text-green-600">+{day.productProfit.toLocaleString()}</td>
+                                        <td className="p-4 text-right text-red-500">-{day.commissions.toLocaleString()}</td>
+                                        <td className="p-4 text-right text-orange-600">-{(day.expenses || 0).toLocaleString()}</td>
+                                        <td className="p-4 text-right font-bold text-purple-900 bg-purple-50">{day.netIncome.toLocaleString()}</td>
+                                    </tr>
+                                ))}
+                                {(!daily || daily.length === 0) && (
+                                    <tr>
+                                        <td colSpan={6} className="p-8 text-center text-gray-400 italic">No records found for this period.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="bg-gray-100 text-gray-600 uppercase text-xs font-bold">
-                            <tr>
-                                <th className="p-4">Date</th>
-                                <th className="p-4 text-right">Gross Rev.</th>
-                                <th className="p-4 text-right">Prod. Profit</th>
-                                <th className="p-4 text-right">Commissions</th>
-                                <th className="p-4 text-right">Expenses</th>
-                                <th className="p-4 text-right bg-purple-100 text-purple-900">Net Income</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {daily && daily.map((day: any) => (
-                                <tr key={day.date} className="hover:bg-gray-50">
-                                    <td className="p-4 font-medium text-gray-800">{new Date(day.date).toDateString()}</td>
-                                    <td className="p-4 text-right text-gray-600">{day.grossRevenue.toLocaleString()}</td>
-                                    <td className="p-4 text-right text-green-600">+{day.productProfit.toLocaleString()}</td>
-                                    <td className="p-4 text-right text-red-500">-{day.commissions.toLocaleString()}</td>
-                                    <td className="p-4 text-right text-orange-600">-{(day.expenses || 0).toLocaleString()}</td>
-                                    <td className="p-4 text-right font-bold text-purple-900 bg-purple-50">{day.netIncome.toLocaleString()}</td>
-                                </tr>
-                            ))}
-                            {(!daily || daily.length === 0) && (
-                                <tr>
-                                    <td colSpan={6} className="p-8 text-center text-gray-400 italic">No records found for this period.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            )}
 
             {/* Commission Payouts (Filtered by date range) */}
             <div className="bg-white p-8 rounded-xl shadow-md border-t-4 border-gold-500">

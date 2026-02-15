@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { HashRouter as Router, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import logo from './assets/logo.png';
 import Clients from './pages/Clients';
@@ -11,6 +12,8 @@ import Login from './pages/Login';
 import Users from './pages/Users';
 import Expenses from './pages/Expenses';
 import Help from './pages/Help';
+import LicenseLock from './pages/LicenseLock';
+import { LicenseProvider, useLicense } from './context/LicenseContext';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const userStr = localStorage.getItem('user');
@@ -34,11 +37,30 @@ function Sidebar() {
   const user = userStr ? JSON.parse(userStr) : null;
   const navigate = useNavigate();
 
+  const { isFeatureAllowed, status, activate } = useLicense();
+  const [showActivate, setShowActivate] = useState(false);
+  const [activationKey, setActivationKey] = useState('');
+  const [actLoading, setActLoading] = useState(false);
+
   if (!user) return null;
 
   const handleLogout = () => {
     localStorage.removeItem('user');
     navigate('/login');
+  };
+
+  const handleActivate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActLoading(true);
+    try {
+      await activate(activationKey);
+      setShowActivate(false);
+      setActivationKey('');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Activation failed');
+    } finally {
+      setActLoading(false);
+    }
   };
 
   return (
@@ -95,14 +117,14 @@ function Sidebar() {
               </Link>
             </li>
           )}
-          {user.role === 'admin' && (
+          {user.role === 'admin' && isFeatureAllowed('EXPENSES') && (
             <li>
               <Link to="/expenses" className="block p-3 rounded hover:bg-purple-800 hover:text-gold-400 transition-colors">
                 Expenses
               </Link>
             </li>
           )}
-          {user.role === 'admin' && (
+          {user.role === 'admin' && isFeatureAllowed('USER_MANAGEMENT') && (
             <li>
               <Link to="/users" className="block p-3 rounded hover:bg-purple-800 hover:text-gold-400 transition-colors">
                 Users
@@ -117,6 +139,52 @@ function Sidebar() {
         </ul>
       </div>
       <div>
+        {status && !status.isActivated && (
+          <div className="mb-4 p-3 bg-purple-800 rounded-lg border border-purple-700">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold text-purple-300 uppercase">Trial Status</span>
+              <span className="text-xs bg-gold-600 text-purple-900 px-2 py-0.5 rounded-full font-bold">
+                {status.daysRemaining} days left
+              </span>
+            </div>
+            {!showActivate ? (
+              <button
+                onClick={() => setShowActivate(true)}
+                className="w-full bg-gold-500 hover:bg-gold-600 text-purple-900 text-xs font-black py-2 rounded transition-colors uppercase"
+              >
+                Activate Pro
+              </button>
+            ) : (
+              <form onSubmit={handleActivate} className="space-y-2 anim-fade-in">
+                <input
+                  type="text"
+                  value={activationKey}
+                  onChange={(e) => setActivationKey(e.target.value.toUpperCase())}
+                  placeholder="MB-XXXX-XXXX-XXXX"
+                  className="w-full bg-purple-900 border border-purple-600 text-white text-xs p-2 rounded outline-none focus:border-gold-500 font-mono"
+                  required
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={actLoading}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold py-1.5 rounded disabled:opacity-50"
+                  >
+                    {actLoading ? '...' : 'SUBMIT'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowActivate(false)}
+                    className="bg-purple-700 hover:bg-purple-600 text-white text-[10px] font-bold py-1.5 px-3 rounded"
+                  >
+                    X
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+
         <button onClick={handleLogout} className="w-full text-left p-3 rounded hover:bg-red-800 text-red-200 transition-colors mb-4 block">
           Logout
         </button>
@@ -133,8 +201,13 @@ function Layout() {
   const user = userStr ? JSON.parse(userStr) : null;
   // If no user, we might be on login page, so sidebar handles its own null check or we conditionally render layout
 
+  const { status, loading, isFeatureAllowed } = useLicense();
+
+  if (loading) return null;
+
   return (
     <div className="flex">
+      {status?.isExpired && <LicenseLock />}
       {user && <Sidebar />}
       <main className={`flex-1 p-4 ${!user ? 'w-full' : ''}`}>
         <Routes>
@@ -184,13 +257,13 @@ function Layout() {
 
           <Route path="/expenses" element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <Expenses />
+              {isFeatureAllowed('EXPENSES') ? <Expenses /> : <Navigate to="/sales" replace />}
             </ProtectedRoute>
           } />
 
           <Route path="/users" element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <Users />
+              {isFeatureAllowed('USER_MANAGEMENT') ? <Users /> : <Navigate to="/sales" replace />}
             </ProtectedRoute>
           } />
 
@@ -211,7 +284,9 @@ export default function App() {
   return (
     <Router>
       <ToastProvider>
-        <Layout />
+        <LicenseProvider>
+          <Layout />
+        </LicenseProvider>
       </ToastProvider>
     </Router>
   );

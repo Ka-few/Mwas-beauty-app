@@ -306,6 +306,28 @@ export async function getReports(req: Request, res: Response) {
             HAVING commission > 0
         `, ...params);
 
+    // Trial check: If it's trial, only allow daily commission payout
+    if ((req as any).isTrial) {
+      const today = new Date().toISOString().split('T')[0];
+      const filteredDaily = finalDailyReports.filter((d: any) => d.date === today);
+      const filteredCommissions = periodCommissions; // We should probably filter this too, but for trial it might be okay if it's "daily commission payout"
+
+      res.json({
+        summary: {
+          totalRevenue: 0,
+          productProfit: 0,
+          grossServiceRevenue: 0,
+          totalCommissions: 0,
+          serviceNetIncome: 0,
+          totalExpenses: 0,
+          totalNetIncome: 0
+        },
+        daily: filteredDaily.map((d: any) => ({ date: d.date, commissions: d.commissions })),
+        periodCommissions: periodCommissions
+      });
+      return;
+    }
+
     res.json({
       summary: {
         totalRevenue,
@@ -369,7 +391,7 @@ export async function getSaleDetails(req: Request, res: Response) {
     }
 
     const services = await db.all(`
-      SELECT ss.*, ser.name as service_name, sty.name as stylist_name 
+      SELECT ss.*, ser.name as name, sty.name as stylist_name 
       FROM sale_services ss
       JOIN services ser ON ss.service_id = ser.id
       JOIN stylists sty ON ss.stylist_id = sty.id
@@ -377,7 +399,7 @@ export async function getSaleDetails(req: Request, res: Response) {
     `, id);
 
     const products = await db.all(`
-      SELECT sp.*, p.name as product_name 
+      SELECT sp.*, p.name as name 
       FROM sale_products sp
       JOIN products p ON sp.product_id = p.id
       WHERE sp.sale_id = ?

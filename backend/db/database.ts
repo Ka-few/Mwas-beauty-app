@@ -287,6 +287,32 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     } catch (e: any) {
         // Ignore errors if column already exists
     }
+
+    // 4. Safe migration: Add settings table if missing for older DBs
+    try {
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+    } catch (e: any) {
+        // Ignore errors
+    }
+
+    // 5. Licensing specific initialization
+    try {
+        const check = await db.get("SELECT COUNT(*) as count FROM settings WHERE key = 'trial_start_date'");
+        if (check && check.count === 0) {
+            await db.run("INSERT INTO settings (key, value) VALUES ('trial_start_date', datetime('now'))");
+            await db.run("INSERT INTO settings (key, value) VALUES ('is_activated', 'false')");
+            await db.run("INSERT INTO settings (key, value) VALUES ('license_key', '')");
+            console.log('Successfully initialized licensing settings');
+        }
+    } catch (e) {
+        console.error('Error initializing licensing settings', e);
+    }
 }
 
 export const getDB = initializeDB;
