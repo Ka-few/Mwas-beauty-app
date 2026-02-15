@@ -160,10 +160,11 @@ export default function Sales() {
         // Completing an existing pending sale
         await completeSale(selectedSaleForPayment.id, {
           payment_method: paymentMethod,
-          mpesa_code: paymentMethod === 'Mpesa' ? mpesaCode : null
+          mpesa_code: mpesaCode
         });
+        showToast('Payment completed!', 'success');
 
-        // Fetch full details and print receipt after completion
+        // Auto-print receipt
         try {
           const details = await getSaleDetails(selectedSaleForPayment.id);
           printReceipt(
@@ -297,14 +298,43 @@ export default function Sales() {
             </div>
 
             <script>
-              window.onload = function() {
+            window.onload = function() {
+              const images = document.getElementsByTagName('img');
+              let loaded = 0;
+              if (images.length === 0) {
                 window.print();
-                setTimeout(function() { window.close(); }, 500);
-              };
-            </script>
-          </body>
-        </html>
-      `;
+                setTimeout(() => window.close(), 500);
+                return;
+              }
+              for (let img of images) {
+                if (img.complete) {
+                  loaded++;
+                  if (loaded === images.length) {
+                    window.print();
+                    setTimeout(() => window.close(), 500);
+                  }
+                } else {
+                  img.onload = function() {
+                    loaded++;
+                    if (loaded === images.length) {
+                      window.print();
+                      setTimeout(() => window.close(), 500);
+                    }
+                  };
+                  img.onerror = function() {
+                    loaded++;
+                    if (loaded === images.length) {
+                      window.print();
+                      setTimeout(() => window.close(), 500);
+                    }
+                  };
+                }
+              }
+            };
+          </script>
+        </body>
+      </html>
+    `;
 
     const printWindow = window.open('', '_blank', 'width=400,height=600');
     if (printWindow) {

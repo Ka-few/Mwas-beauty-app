@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import { errorHandler } from './middleware/error';
 import clientsRoutes from './routes/clients.routes';
 import stylistsRoutes from './routes/stylists.routes';
 import servicesRoutes from './routes/services.routes';
@@ -10,6 +9,8 @@ import authRoutes from './routes/auth.routes';
 import expensesRoutes from './routes/expenses.routes';
 import licenseRoutes from './routes/license.routes';
 import { checkLicense } from './middleware/license.middleware';
+import { authenticate } from './middleware/auth.middleware';
+import { errorHandler } from './middleware/error';
 
 const app = express();
 
@@ -25,7 +26,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-context']
 }));
 
 // Request logging middleware for debugging
@@ -48,12 +49,19 @@ app.use('/api/license', licenseRoutes);
 // Apply license check to all following routes
 app.use(checkLicense);
 
+// Public Auth: Login
+import { login } from './controllers/auth.controller';
+app.post('/api/auth/login', login);
+
+// Protected routes
+app.use(authenticate);
+
 app.use('/api/clients', clientsRoutes);
 app.use('/api/stylists', stylistsRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/sales', salesRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes); // authRoutes now protects everything except /login (which we redefined above)
 app.use('/api/expenses', expensesRoutes);
 
 // Global Error Handler

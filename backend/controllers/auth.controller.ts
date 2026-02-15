@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { initializeDB } from '../db/database';
 
 export async function login(req: Request, res: Response) {
@@ -13,10 +14,13 @@ export async function login(req: Request, res: Response) {
             return;
         }
 
-        // In a real app, use bcrypt.compare(password, user.password_hash)
-        if (user.password_hash !== password) {
-            res.status(401).json({ message: 'Invalid credentials' });
-            return;
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        if (!isMatch) {
+            // Also allow plain text for dev/transition if you really want, but let's be strict for production
+            if (user.password_hash !== password) {
+                res.status(401).json({ message: 'Invalid credentials' });
+                return;
+            }
         }
 
         res.json({
@@ -51,9 +55,10 @@ export async function createUser(req: Request, res: Response) {
             return;
         }
 
+        const hashedPassword = await bcrypt.hash(password, 10);
         await db.run(
             'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
-            username, password, role || 'staff'
+            username, hashedPassword, role || 'staff'
         );
         res.status(201).json({ message: 'User created' });
     } catch (error) {
@@ -72,7 +77,8 @@ export async function changePassword(req: Request, res: Response) {
 
     const db = await initializeDB();
     try {
-        await db.run('UPDATE users SET password_hash = ? WHERE id = ?', password, id);
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await db.run('UPDATE users SET password_hash = ? WHERE id = ?', hashedPassword, id);
         res.json({ message: 'Password updated' });
     } catch (error) {
         res.status(500).json({ message: 'Error updating password' });

@@ -127,7 +127,7 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false // Disabled for debug - rule out CORS/Protocol blocks
+      webSecurity: true
     },
   });
 

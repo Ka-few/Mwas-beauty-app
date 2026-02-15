@@ -6,4 +6,4 @@ export const deleteSale = (id: number) => api.delete(`/sales/${id}`).then(res =>
 export const getAnalytics = () => api.get('/sales/analytics').then(res => res.data);
 export const getReports = (startDate?: string, endDate?: string) => api.get('/sales/reports', { params: { startDate, endDate } }).then(res => res.data);
 export const getSaleDetails = (id: number) => api.get(`/sales/${id}`).then(res => res.data);
-export const completeSale = (id: number, data: any) => api.put(`/sales/${id}/complete`, data).then(res => res.data);
+export const completeSale = (id: number, data: { payment_method: string, mpesa_code?: string | null }) => api.put(`/sales/${id}/complete`, data).then(res => res.data);

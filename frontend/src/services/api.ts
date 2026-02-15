@@ -5,15 +5,21 @@ const baseURL = import.meta.env.DEV ? '/api' : 'http://127.0.0.1:3001/api';
 
 const api = axios.create({
   baseURL,
-  timeout: 10000, // Increased timeout for Windows systems
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add request interceptor for debugging
+// Add request interceptor for debugging and auth
 api.interceptors.request.use(
   (config) => {
+    // Add user context for backend auth middleware
+    const user = localStorage.getItem('user');
+    if (user) {
+      config.headers['x-user-context'] = user;
+    }
+
     console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },

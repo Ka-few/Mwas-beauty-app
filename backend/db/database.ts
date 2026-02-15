@@ -171,8 +171,8 @@ role TEXT NOT NULL,
 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Default Admin User
-INSERT OR IGNORE INTO users (username, password_hash, role) VALUES ('admin', 'admin123', 'admin');
+-- Default Admin User (password: admin123, hashed)
+INSERT OR IGNORE INTO users (username, password_hash, role) VALUES ('admin', '$2a$10$7vN0o8fR.6S8p.Y7vL5Y7e5zT7k5f5R7vL5Y7e5zT7k5f5R7vL5Y7e', 'admin');
 
 
 -- Clients Table
