@@ -172,7 +172,7 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Default Admin User (password: admin123, hashed)
-INSERT OR IGNORE INTO users (username, password_hash, role) VALUES ('admin', '$2a$10$7vN0o8fR.6S8p.Y7vL5Y7e5zT7k5f5R7vL5Y7e5zT7k5f5R7vL5Y7e', 'admin');
+INSERT OR IGNORE INTO users (username, password_hash, role) VALUES ('admin', '$2a$10$BNO/5FMT3L.6fyc5kLSeI.MoAY62zpfC17.dGysZ9cTIUWY/zwWDu', 'admin');
 
 
 -- Clients Table
@@ -312,6 +312,19 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         }
     } catch (e) {
         console.error('Error initializing licensing settings', e);
+    }
+
+    // 6. Fix potentially corrupted admin hash from previous bad build
+    try {
+        const admin = await db.get("SELECT password_hash FROM users WHERE username = 'admin'");
+        if (admin && (admin.password_hash.includes('7vN0o8fR') || !admin.password_hash.startsWith('$'))) {
+            // It's either the corrupted hash or plain text - update to good hash
+            const goodHash = '$2a$10$BNO/5FMT3L.6fyc5kLSeI.MoAY62zpfC17.dGysZ9cTIUWY/zwWDu';
+            await db.run("UPDATE users SET password_hash = ? WHERE username = 'admin'", goodHash);
+            console.log('Successfully updated/repaired admin password hash');
+        }
+    } catch (e) {
+        console.error('Error repairing admin hash', e);
     }
 }
 
