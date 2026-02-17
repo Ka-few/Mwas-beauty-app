@@ -30,3 +30,40 @@ export const createSaleSchema = z.object({
         return hasServices || hasProducts;
     }, { message: "Sale must include at least one service or product" })
 });
+export const createBookingSchema = z.object({
+    body: z.object({
+        client_id: z.number().optional().nullable(),
+        customer_name: z.string().min(1),
+        phone_number: z.string().min(1),
+        services: z.array(z.object({
+            service_id: z.number(),
+            stylist_id: z.number().optional().nullable()
+        })).min(1),
+        stylist_id: z.number().optional().nullable(),
+        booking_date: z.string(),
+        booking_time: z.string(),
+        source: z.enum(['whatsapp', 'facebook', 'instagram', 'call', 'physical']),
+        booking_type: z.enum(['walk-in', 'scheduled']),
+        status: z.enum(['scheduled', 'in-progress', 'completed', 'cancelled', 'no-show']).optional(),
+        notes: z.string().optional().nullable(),
+    })
+});
+
+export const updateBookingSchema = z.object({
+    body: z.object({
+        client_id: z.number().optional().nullable(),
+        customer_name: z.string().min(1).optional(),
+        phone_number: z.string().min(1).optional(),
+        services: z.array(z.object({
+            service_id: z.number(),
+            stylist_id: z.number().optional().nullable()
+        })).min(1).optional(),
+        stylist_id: z.number().optional().nullable(),
+        booking_date: z.string().optional(),
+        booking_time: z.string().optional(),
+        source: z.enum(['whatsapp', 'facebook', 'instagram', 'call', 'physical']).optional(),
+        booking_type: z.enum(['walk-in', 'scheduled']).optional(),
+        status: z.enum(['scheduled', 'in-progress', 'completed', 'cancelled', 'no-show']).optional(),
+        notes: z.string().optional().nullable(),
+    })
+});

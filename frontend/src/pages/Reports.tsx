@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getReports } from '../services/sales.api';
+import { bookingService } from '../services/bookings.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logoImg from '../assets/logo.png';
@@ -12,11 +13,13 @@ export default function Reports() {
 
     const today = new Date().toISOString().split('T')[0];
     const [reports, setReports] = useState<any>(null);
+    const [bookingAnalytics, setBookingAnalytics] = useState<any>(null);
     const [startDate, setStartDate] = useState(today);
     const [endDate, setEndDate] = useState(today);
 
     const fetchReports = () => {
         getReports(startDate, endDate).then(setReports).catch(console.error);
+        bookingService.getBookingAnalytics().then(setBookingAnalytics).catch(console.error);
     };
 
     useEffect(() => {
@@ -286,6 +289,34 @@ export default function Reports() {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Booking Specific Insights */}
+            {bookingAnalytics && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                        <h2 className="text-xl font-bold mb-4 text-purple-900">Bookings by Source</h2>
+                        <div className="space-y-2">
+                            {bookingAnalytics.sourceStats.map((s: any) => (
+                                <div key={s.source} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                    <span className="capitalize font-medium">{s.source}</span>
+                                    <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-bold">{s.count} appts</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                        <h2 className="text-xl font-bold mb-4 text-purple-900">Revenue by Booking Type</h2>
+                        <div className="space-y-2">
+                            {bookingAnalytics.revenueByType.map((s: any) => (
+                                <div key={s.booking_type} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                    <span className="capitalize font-medium">{s.booking_type}</span>
+                                    <span className="text-blue-700 font-bold">KES {s.revenue.toLocaleString()}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}

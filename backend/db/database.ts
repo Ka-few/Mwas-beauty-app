@@ -128,6 +128,16 @@ export async function initializeDB(): Promise<any> {
                                 const result = stmt.step() ? stmt.getAsObject() : undefined;
                                 stmt.free();
                                 return result;
+                            },
+                            all: async (sql: string, ...params: any[]) => {
+                                const stmt = db.prepare(sql);
+                                if (params.length > 0) stmt.bind(params);
+                                const results = [];
+                                while (stmt.step()) {
+                                    results.push(stmt.getAsObject());
+                                }
+                                stmt.free();
+                                return results;
                             }
                         };
                         const result = await work(txWrapper);
@@ -263,6 +273,37 @@ date DATE NOT NULL,
 description TEXT,
 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Bookings Table
+CREATE TABLE IF NOT EXISTS bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  client_id INTEGER,
+  customer_name TEXT NOT NULL,
+  phone_number TEXT NOT NULL,
+  stylist_id INTEGER,
+  booking_date DATE NOT NULL,
+  booking_time TIME NOT NULL,
+  end_time TIME,
+  source TEXT NOT NULL CHECK(source IN ('whatsapp', 'facebook', 'instagram', 'call')),
+  booking_type TEXT NOT NULL DEFAULT 'scheduled' CHECK(booking_type IN ('walk-in', 'scheduled')),
+  status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled', 'completed', 'cancelled', 'no-show', 'in-progress')),
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (client_id) REFERENCES clients(id),
+  FOREIGN KEY (stylist_id) REFERENCES stylists(id)
+);
+
+-- Booking Services Junction Table
+CREATE TABLE IF NOT EXISTS booking_services (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  booking_id INTEGER NOT NULL,
+  service_id INTEGER NOT NULL,
+  stylist_id INTEGER,
+  FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+  FOREIGN KEY (service_id) REFERENCES services(id),
+  FOREIGN KEY (stylist_id) REFERENCES stylists(id)
+);
 `;
 
     try {
@@ -299,6 +340,164 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         `);
     } catch (e: any) {
         // Ignore errors
+    }
+
+    // 4b. Safe migration: Add bookings table and enhancements if missing
+    try {
+        // First check if bookings table exists
+        const tableCheck = await db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='bookings'");
+
+        if (tableCheck) {
+            // Check if bookings has the old service_id column
+            const columns = await db.all("PRAGMA table_info(bookings)");
+            const hasServiceId = columns.some((c: any) => c.name === 'service_id');
+
+            if (hasServiceId) {
+                console.log('MIGRATION: Detected old bookings schema with service_id. Starting migration...');
+
+                // 1. Ensure booking_services exists
+                await db.exec(`
+                        CREATE TABLE IF NOT EXISTS booking_services (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            booking_id INTEGER NOT NULL,
+                            service_id INTEGER NOT NULL,
+                            stylist_id INTEGER,
+                            FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+                            FOREIGN KEY (service_id) REFERENCES services(id),
+                            FOREIGN KEY (stylist_id) REFERENCES stylists(id)
+                        );
+                    `);
+
+                // 2. Migrate existing data to booking_services if not already there
+                await db.exec(`
+                        INSERT INTO booking_services (booking_id, service_id, stylist_id)
+                        SELECT id, service_id, stylist_id FROM bookings
+                        WHERE service_id IS NOT NULL;
+                    `);
+
+                // 3. Recreate bookings table without service_id
+                // Note: SQLite doesn't support DROP COLUMN easily for older versions, 
+                // and even if it does, it's safer to recreate for consistency.
+                await db.exec("ALTER TABLE bookings RENAME TO bookings_old;");
+
+                await db.exec(`
+                        CREATE TABLE bookings (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            client_id INTEGER,
+                            customer_name TEXT NOT NULL,
+                            phone_number TEXT NOT NULL,
+                            stylist_id INTEGER,
+                            booking_date DATE NOT NULL,
+                            booking_time TIME NOT NULL,
+                            end_time TIME,
+                            source TEXT NOT NULL CHECK(source IN ('whatsapp', 'facebook', 'instagram', 'call', 'physical')),
+                            booking_type TEXT NOT NULL DEFAULT 'scheduled' CHECK(booking_type IN ('walk-in', 'scheduled')),
+                            status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled', 'completed', 'cancelled', 'no-show', 'in-progress')),
+                            notes TEXT,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (client_id) REFERENCES clients(id),
+                            FOREIGN KEY (stylist_id) REFERENCES stylists(id)
+                        );
+                    `);
+
+                await db.exec(`
+                        INSERT INTO bookings (
+                            id, client_id, customer_name, phone_number, stylist_id, 
+                            booking_date, booking_time, end_time, source, booking_type, status, notes, created_at, updated_at
+                        )
+                        SELECT 
+                            id, client_id, customer_name, phone_number, stylist_id, 
+                            booking_date, booking_time, end_time, source, booking_type, status, notes, created_at, updated_at
+                        FROM bookings_old;
+                    `);
+
+                await db.exec("DROP TABLE bookings_old;");
+                console.log('MIGRATION: Bookings table successfully migrated to new multi-service schema.');
+            }
+        } else {
+            // Create table for the first time
+            await db.exec(`
+                    CREATE TABLE bookings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        client_id INTEGER,
+                        customer_name TEXT NOT NULL,
+                        phone_number TEXT NOT NULL,
+                        stylist_id INTEGER,
+                        booking_date DATE NOT NULL,
+                        booking_time TIME NOT NULL,
+                        end_time TIME,
+                        source TEXT NOT NULL CHECK(source IN ('whatsapp', 'facebook', 'instagram', 'call', 'physical')),
+                        booking_type TEXT NOT NULL DEFAULT 'scheduled' CHECK(booking_type IN ('walk-in', 'scheduled')),
+                        status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled', 'completed', 'cancelled', 'no-show', 'in-progress')),
+                        notes TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (client_id) REFERENCES clients(id),
+                        FOREIGN KEY (stylist_id) REFERENCES stylists(id)
+                    );
+                `);
+        }
+
+        // Always ensure booking_services exists
+        await db.exec(`
+                CREATE TABLE IF NOT EXISTS booking_services (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    booking_id INTEGER NOT NULL,
+                    service_id INTEGER NOT NULL,
+                    stylist_id INTEGER,
+                    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+                    FOREIGN KEY (service_id) REFERENCES services(id),
+                    FOREIGN KEY (stylist_id) REFERENCES stylists(id)
+                );
+            `);
+
+        // 4c. Safe migration: Update 'source' check constraint to include 'physical'
+        const sourceConstraintCheck = await db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='bookings'");
+        if (sourceConstraintCheck && !sourceConstraintCheck.sql.includes("'physical'")) {
+            console.log('MIGRATION: Updating bookings source constraint to include "physical"...');
+            await db.exec("ALTER TABLE bookings RENAME TO bookings_old_source;");
+            await db.exec(`
+                CREATE TABLE bookings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id INTEGER,
+                    customer_name TEXT NOT NULL,
+                    phone_number TEXT NOT NULL,
+                    stylist_id INTEGER,
+                    booking_date DATE NOT NULL,
+                    booking_time TIME NOT NULL,
+                    end_time TIME,
+                    source TEXT NOT NULL CHECK(source IN ('whatsapp', 'facebook', 'instagram', 'call', 'physical')),
+                    booking_type TEXT NOT NULL DEFAULT 'scheduled' CHECK(booking_type IN ('walk-in', 'scheduled')),
+                    status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled', 'completed', 'cancelled', 'no-show', 'in-progress')),
+                    notes TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (client_id) REFERENCES clients(id),
+                    FOREIGN KEY (stylist_id) REFERENCES stylists(id)
+                );
+            `);
+            await db.exec(`
+                INSERT INTO bookings (
+                    id, client_id, customer_name, phone_number, stylist_id, 
+                    booking_date, booking_time, end_time, source, booking_type, status, notes, created_at, updated_at
+                )
+                SELECT 
+                    id, client_id, customer_name, phone_number, stylist_id, 
+                    booking_date, booking_time, end_time, source, booking_type, status, notes, created_at, updated_at
+                FROM bookings_old_source;
+            `);
+            await db.exec("DROP TABLE bookings_old_source;");
+            console.log('MIGRATION: Bookings source constraint updated successfully.');
+        }
+
+        // Safe additions for existing tables
+        try { await db.exec('ALTER TABLE bookings ADD COLUMN client_id INTEGER REFERENCES clients(id);'); } catch (e) { }
+        try { await db.exec('ALTER TABLE booking_services ADD COLUMN stylist_id INTEGER REFERENCES stylists(id);'); } catch (e) { }
+
+        console.log('Successfully initialized/enhanced bookings and booking_services tables');
+    } catch (e: any) {
+        console.error('Migration error in bookings section:', e);
     }
 
     // 5. Licensing specific initialization

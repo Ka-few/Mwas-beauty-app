@@ -4,6 +4,7 @@ import { getStylists } from '../services/stylists.api';
 import { getServices } from '../services/services.api';
 import { getProducts } from '../services/products.api';
 import { getSales, getAnalytics } from '../services/sales.api';
+import { bookingService } from '../services/bookings.service';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
@@ -12,7 +13,8 @@ export default function Dashboard() {
     stylists: 0,
     services: 0,
     products: 0,
-    sales: 0
+    sales: 0,
+    bookings: 0
   });
   const [analytics, setAnalytics] = useState<any>({ stylistPerformance: [], topProducts: [], salesOverTime: [] });
 
@@ -23,13 +25,15 @@ export default function Dashboard() {
     const products = await getProducts();
     const sales = await getSales();
     const analyticsData = await getAnalytics();
+    const bookingsData = await bookingService.getBookings();
 
     setStats({
       clients: clients.length,
       stylists: stylists.length,
       services: services.length,
       products: products.length,
-      sales: sales.length
+      sales: sales.length,
+      bookings: bookingsData.length
     });
     setAnalytics(analyticsData);
   };
@@ -67,6 +71,10 @@ export default function Dashboard() {
         <div className="bg-gold-500 text-purple-900 p-6 rounded-xl shadow-lg transform hover:scale-105 transition-transform duration-200">
           <h2 className="text-lg font-bold text-purple-900 uppercase tracking-wide">Total Sales</h2>
           <p className="text-4xl font-bold mt-2">{stats.sales}</p>
+        </div>
+        <div className="bg-blue-600 text-white p-6 rounded-xl shadow-lg transform hover:scale-105 transition-transform duration-200">
+          <h2 className="text-lg font-bold uppercase tracking-wide">Bookings</h2>
+          <p className="text-4xl font-bold mt-2">{stats.bookings}</p>
         </div>
       </div>
 

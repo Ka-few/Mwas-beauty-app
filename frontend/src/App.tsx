@@ -11,6 +11,7 @@ import Reports from './pages/Reports';
 import Login from './pages/Login';
 import Users from './pages/Users';
 import Expenses from './pages/Expenses';
+import Bookings from './pages/Bookings';
 import Help from './pages/Help';
 import LicenseLock from './pages/LicenseLock';
 import { LicenseProvider, useLicense } from './context/LicenseContext';
@@ -108,6 +109,11 @@ function Sidebar() {
           <li>
             <Link to="/sales" className="block p-3 rounded hover:bg-purple-800 hover:text-gold-400 transition-colors">
               Sales
+            </Link>
+          </li>
+          <li>
+            <Link to="/bookings" className="block p-3 rounded hover:bg-purple-800 hover:text-gold-400 transition-colors">
+              Bookings
             </Link>
           </li>
           {user.role === 'admin' && (
@@ -246,6 +252,12 @@ function Layout() {
           <Route path="/sales" element={
             <ProtectedRoute allowedRoles={['admin', 'staff']}>
               <Sales />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/bookings" element={
+            <ProtectedRoute allowedRoles={['admin', 'staff']}>
+              <Bookings />
             </ProtectedRoute>
           } />
 

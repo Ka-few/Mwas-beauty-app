@@ -7,6 +7,7 @@ import productsRoutes from './routes/products.routes';
 import salesRoutes from './routes/sales.routes';
 import authRoutes from './routes/auth.routes';
 import expensesRoutes from './routes/expenses.routes';
+import bookingsRoutes from './routes/bookings.routes';
 import licenseRoutes from './routes/license.routes';
 import { checkLicense } from './middleware/license.middleware';
 import { authenticate } from './middleware/auth.middleware';
@@ -63,6 +64,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/auth', authRoutes); // authRoutes now protects everything except /login (which we redefined above)
 app.use('/api/expenses', expensesRoutes);
+app.use('/api/bookings', bookingsRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

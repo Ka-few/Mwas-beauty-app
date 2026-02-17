@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useToast } from '../components/ui/Toast';
 import { getSales, addSale, completeSale, getSaleDetails } from '../services/sales.api';
 import { getClients } from '../services/clients.api';
@@ -18,6 +19,7 @@ declare module 'jspdf' {
 }
 
 export default function Sales() {
+  const location = useLocation();
   const { showToast } = useToast();
   const [sales, setSales] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
@@ -31,6 +33,7 @@ export default function Sales() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [mpesaCode, setMpesaCode] = useState('');
   const [selectedSaleForPayment, setSelectedSaleForPayment] = useState<any>(null);
+  const [hasInitialFilled, setHasInitialFilled] = useState(false);
 
   const fetchAll = async () => {
     try {
@@ -55,6 +58,36 @@ export default function Sales() {
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  // Handle auto-fill from booking redirection
+  useEffect(() => {
+    const bookingData = location.state?.bookingData;
+    if (bookingData && stylists.length > 0 && services.length > 0 && !hasInitialFilled) {
+      console.log('Auto-filling sale from booking:', bookingData);
+
+      // Fill client - if client_id is null, it's a walk-in, so leave selectedClient null
+      if (bookingData.client_id) {
+        setSelectedClient(bookingData.client_id);
+      }
+
+      // Fill services
+      if (bookingData.services && Array.isArray(bookingData.services)) {
+        const mappedServices = bookingData.services.map((bs: any) => {
+          const serviceInfo = services.find(s => s.id === bs.service_id);
+          return {
+            service_id: bs.service_id,
+            stylist_id: bs.stylist_id || stylists[0]?.id,
+            price: serviceInfo?.price || 0,
+            name: serviceInfo?.name || 'Unknown Service'
+          };
+        });
+        setSelectedServices(mappedServices);
+      }
+
+      setHasInitialFilled(true);
+      showToast(`Loaded details from ${bookingData.customer_name}'s booking`, 'success');
+    }
+  }, [location.state, stylists, services, hasInitialFilled, showToast]);
 
   const handleProductChange = (productId: number) => {
     const exists = selectedProducts.find(p => p.product_id === productId);
