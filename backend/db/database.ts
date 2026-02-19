@@ -9,6 +9,15 @@ let initPromise: Promise<any> | null = null;
 // Simple lock mechanism to serialize DB operations
 let dbQueue: Promise<any> = Promise.resolve();
 
+// Generate UUID for record_id
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0,
+            v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 async function enqueue<T>(op: () => Promise<T>): Promise<T> {
     const next = dbQueue.then(op);
     dbQueue = next.catch(() => { });
@@ -550,6 +559,70 @@ CREATE TABLE IF NOT EXISTS consumable_usage (
         console.log('Successfully checked/created consumables tables');
     } catch (e) {
         console.error('Migration error in consumables section:', e);
+    }
+
+    // 4e. Safe migration: Sync Columns & Tables
+    try {
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS sync_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                branch_id TEXT,
+                direction TEXT CHECK(direction IN ('PUSH', 'PULL')),
+                status TEXT CHECK(status IN ('SUCCESS', 'FAILED', 'PARTIAL')),
+                records_processed INTEGER DEFAULT 0,
+                details TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE TABLE IF NOT EXISTS branches (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                last_sync DATETIME,
+                status TEXT DEFAULT 'ACTIVE',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // List of tables to sync
+        const tablesToSync = [
+            'users', 'clients', 'stylists', 'services', 'products',
+            'sales', 'sale_services', 'sale_products', 'expenses',
+            'bookings', 'booking_services', 'consumables', 'consumable_usage'
+        ];
+
+        for (const table of tablesToSync) {
+            try {
+                // Add record_id
+                const cols = await db.all(`PRAGMA table_info(${table})`);
+                const hasRecordId = cols.some((c: any) => c.name === 'record_id');
+
+                if (!hasRecordId) {
+                    console.log(`Adding sync columns to ${table}...`);
+                    await db.exec(`ALTER TABLE ${table} ADD COLUMN record_id TEXT;`);
+                    await db.exec(`ALTER TABLE ${table} ADD COLUMN branch_id TEXT;`);
+                    await db.exec(`ALTER TABLE ${table} ADD COLUMN last_modified DATETIME;`);
+                    await db.exec(`ALTER TABLE ${table} ADD COLUMN sync_status TEXT DEFAULT 'pending';`); // pending, synced
+
+                    // Backfill record_id for existing rows
+                    const rows = await db.all(`SELECT id FROM ${table} WHERE record_id IS NULL`);
+                    if (rows.length > 0) {
+                        await db.transaction(async (tx: any) => {
+                            for (const row of rows) {
+                                const uuid = generateUUID();
+                                await tx.run(`UPDATE ${table} SET record_id = ?, last_modified = CURRENT_TIMESTAMP, sync_status = 'pending' WHERE id = ?`, uuid, row.id);
+                            }
+                        });
+                        console.log(`Backfilled UUIDs for ${rows.length} rows in ${table}`);
+                    }
+                }
+            } catch (err: any) {
+                console.error(`Failed to add sync columns to ${table}:`, err.message);
+            }
+        }
+
+        console.log('Successfully initialized sync tables and columns');
+    } catch (e) {
+        console.error('Migration error in sync section:', e);
     }
 
     // 5. Licensing specific initialization

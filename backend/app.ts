@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.routes';
 import expensesRoutes from './routes/expenses.routes';
 import bookingsRoutes from './routes/bookings.routes';
 import consumablesRoutes from './routes/consumables.routes';
+import syncRoutes from './routes/sync.routes';
 import licenseRoutes from './routes/license.routes';
 import { checkLicense } from './middleware/license.middleware';
 import { authenticate } from './middleware/auth.middleware';
@@ -55,6 +56,9 @@ app.use(checkLicense);
 import { login } from './controllers/auth.controller';
 app.post('/api/auth/login', login);
 
+// Public Sync Endpoints (Protected by branch_id in controller logic if needed later)
+app.use('/api/sync', syncRoutes);
+
 // Protected routes
 app.use(authenticate);
 
@@ -67,6 +71,7 @@ app.use('/api/auth', authRoutes); // authRoutes now protects everything except /
 app.use('/api/expenses', expensesRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/consumables', consumablesRoutes);
+
 
 // Global Error Handler
 app.use(errorHandler);

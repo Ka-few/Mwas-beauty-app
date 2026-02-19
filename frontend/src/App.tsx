@@ -15,6 +15,7 @@ import Bookings from './pages/Bookings';
 import Help from './pages/Help';
 import LicenseLock from './pages/LicenseLock';
 import Consumables from './pages/Consumables';
+import SyncSettings from './pages/SyncSettings';
 import { LicenseProvider, useLicense } from './context/LicenseContext';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
@@ -111,6 +112,13 @@ function Sidebar() {
             <li>
               <Link to="/consumables" className="block p-3 rounded hover:bg-purple-800 hover:text-gold-400 transition-colors">
                 Consumables
+              </Link>
+            </li>
+          )}
+          {user.role === 'admin' && (
+            <li>
+              <Link to="/sync-settings" className="block p-3 rounded hover:bg-purple-800 hover:text-gold-400 transition-colors">
+                Sync Settings
               </Link>
             </li>
           )}
@@ -260,6 +268,12 @@ function Layout() {
           <Route path="/consumables" element={
             <ProtectedRoute allowedRoles={['admin']}>
               {isFeatureAllowed('CONSUMABLES') ? <Consumables /> : <Navigate to="/sales" replace />}
+            </ProtectedRoute>
+          } />
+
+          <Route path="/sync-settings" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <SyncSettings />
             </ProtectedRoute>
           } />
 
