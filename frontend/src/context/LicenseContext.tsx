@@ -48,6 +48,7 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
         switch (feature) {
             case 'EXPENSES':
             case 'USER_MANAGEMENT':
+            case 'CONSUMABLES':
                 return false;
             case 'FULL_REPORTS':
                 return false;

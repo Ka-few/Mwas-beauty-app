@@ -14,6 +14,7 @@ import Expenses from './pages/Expenses';
 import Bookings from './pages/Bookings';
 import Help from './pages/Help';
 import LicenseLock from './pages/LicenseLock';
+import Consumables from './pages/Consumables';
 import { LicenseProvider, useLicense } from './context/LicenseContext';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
@@ -105,6 +106,13 @@ function Sidebar() {
                 </Link>
               </li>
             </>
+          )}
+          {user.role === 'admin' && isFeatureAllowed('CONSUMABLES') && (
+            <li>
+              <Link to="/consumables" className="block p-3 rounded hover:bg-purple-800 hover:text-gold-400 transition-colors">
+                Consumables
+              </Link>
+            </li>
           )}
           <li>
             <Link to="/sales" className="block p-3 rounded hover:bg-purple-800 hover:text-gold-400 transition-colors">
@@ -246,6 +254,12 @@ function Layout() {
           <Route path="/products" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <Products />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/consumables" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              {isFeatureAllowed('CONSUMABLES') ? <Consumables /> : <Navigate to="/sales" replace />}
             </ProtectedRoute>
           } />
 

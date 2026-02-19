@@ -67,3 +67,26 @@ export const updateBookingSchema = z.object({
         notes: z.string().optional().nullable(),
     })
 });
+
+export const createConsumableSchema = z.object({
+    body: z.object({
+        name: z.string().min(1, 'Name is required'),
+        unit: z.string().optional(),
+        min_level: z.number().min(0).optional(),
+        current_stock: z.number().min(0).optional()
+    })
+});
+
+export const updateConsumableStockSchema = z.object({
+    body: z.object({
+        physical_count: z.number().min(0, 'Physical count must be non-negative'),
+        notes: z.string().optional()
+    })
+});
+
+export const addConsumableStockSchema = z.object({
+    body: z.object({
+        quantity: z.number().positive('Quantity must be positive'),
+        notes: z.string().optional()
+    })
+});

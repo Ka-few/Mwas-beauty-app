@@ -294,6 +294,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   FOREIGN KEY (stylist_id) REFERENCES stylists(id)
 );
 
+
 -- Booking Services Junction Table
 CREATE TABLE IF NOT EXISTS booking_services (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -303,6 +304,28 @@ CREATE TABLE IF NOT EXISTS booking_services (
   FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
   FOREIGN KEY (service_id) REFERENCES services(id),
   FOREIGN KEY (stylist_id) REFERENCES stylists(id)
+);
+
+-- Consumables Master List
+CREATE TABLE IF NOT EXISTS consumables (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    unit TEXT, -- e.g., 'ml', 'g', 'count'
+    min_level REAL DEFAULT 0,
+    current_stock REAL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Consumable Usage Logs
+CREATE TABLE IF NOT EXISTS consumable_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    consumable_id INTEGER NOT NULL,
+    previous_stock REAL NOT NULL,
+    current_stock REAL NOT NULL,
+    usage_amount REAL NOT NULL,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (consumable_id) REFERENCES consumables(id)
 );
 `;
 
@@ -498,6 +521,35 @@ CREATE TABLE IF NOT EXISTS booking_services (
         console.log('Successfully initialized/enhanced bookings and booking_services tables');
     } catch (e: any) {
         console.error('Migration error in bookings section:', e);
+    }
+
+    // 4d. Safe migration: Add consumables tables if missing
+    try {
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS consumables (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                unit TEXT,
+                min_level REAL DEFAULT 0,
+                current_stock REAL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS consumable_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                consumable_id INTEGER NOT NULL,
+                previous_stock REAL NOT NULL,
+                current_stock REAL NOT NULL,
+                usage_amount REAL NOT NULL,
+                notes TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (consumable_id) REFERENCES consumables(id)
+            );
+        `);
+        console.log('Successfully checked/created consumables tables');
+    } catch (e) {
+        console.error('Migration error in consumables section:', e);
     }
 
     // 5. Licensing specific initialization
