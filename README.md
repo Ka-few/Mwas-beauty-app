@@ -7,6 +7,11 @@
 
 ## Key Features
 
+### 📅 Appointment Scheduling
+- **Online & Manual Bookings:** Manage client appointments with ease.
+- **Stylist Availability:** Real-time visibility into staff schedules to prevent overbooking.
+- **Booking Status:** Track pending, confirmed, and completed appointments.
+
 ### 💰 Sales Management
 - **Point of Sale (POS):** Fast and intuitive interface for recording service and product sales.
 - **Client Tracking:** Assign sales to specific clients or walk-ins.
@@ -26,14 +31,23 @@
     - **Commission Payouts:** Daily sign-off sheets for staff commission payments.
 - **Expense Tracking:** Monitor salon expenses to calculate true net profit.
 
-### 🛠 Administrative Tools
-- **Inventory Management:** Track product stock and pricing.
+### 📦 Consumables & Inventory
+- **Consumables Tracking:** Monitor usage of salon supplies (shampoos, dyes, etc.) per service.
+- **Product Inventory:** Track retail product stock and pricing.
 - **Service Menu:** Configure service offerings and pricing.
-- **User Management:** Create and manage system users.
+
+### 🔄 Multi-Branch Synchronization
+- **Real-time Sync:** Synchronize data between multiple branches and a central server.
+- **Conflict Resolution:** Robust handling of data conflicts during synchronization.
+- **Offline Mode:** Continue operations offline and sync when reconnected.
+
+### 🛠 Administrative Tools
+- **User Management:** Create and manage system users with different permissions.
+- **System Settings:** Configure salon details, backup preferences, and sync tokens.
 
 ## Tech Stack
 - **Frontend:** React, TypeScript, Tailwind CSS, Vite
-- **Backend:** Node.js, Express, SQLite
+- **Backend:** Node.js, Express, SQLite, sql.js (for web/browser mode)
 - **Desktop Wrapper:** Electron
 - **Reporting:** jsPDF, jspdf-autotable
 
