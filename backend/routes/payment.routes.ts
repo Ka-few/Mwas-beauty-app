@@ -16,10 +16,9 @@ const mpesaConfig = {
 };
 
 // Assuming 'db' is initialized elsewhere (e.g., Prisma)
-const db = {};
 
 const mpesaService = new MpesaService(mpesaConfig);
-const paymentService = new PaymentService(mpesaService, db);
+const paymentService = new PaymentService(mpesaService);
 const paymentController = new PaymentController(paymentService);
 
 // Payment Initiation

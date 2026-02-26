@@ -70,6 +70,30 @@ export class MpesaService {
         return response.data;
     }
 
+    /**
+     * Queries the STK Push status from Safaricom (no callback needed)
+     * Returns ResultCode 0 = success, 1032 = cancelled, 1037 = timeout, 0 = paid
+     */
+    public async queryStkPush(checkoutRequestId: string): Promise<any> {
+        const token = await this.getAccessToken();
+        const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+        const password = Buffer.from(`${this.config.shortCode}${this.config.passKey}${timestamp}`).toString('base64');
+
+        const payload = {
+            BusinessShortCode: this.config.shortCode,
+            Password: password,
+            Timestamp: timestamp,
+            CheckoutRequestID: checkoutRequestId,
+        };
+
+        const response = await axios.post(
+            `${this.config.baseUrl}/mpesa/stkpushquery/v1/query`,
+            payload,
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+        return response.data;
+    }
+
     public validateCallback(payload: any): boolean {
         // Implement validation logic (e.g., checking source IP or signature if provided by Safaricom)
         // For Sandbox, we mostly check for the existence of Body.stkCallback

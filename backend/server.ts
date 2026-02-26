@@ -1,3 +1,4 @@
+import 'dotenv/config'; // MUST be first — loads .env before app.ts and all route modules read process.env
 import app from './app';
 
 const PORT = 3001;
