@@ -1,10 +1,8 @@
+import 'dotenv/config'; // MUST be first — loads .env before any module reads process.env
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import paymentRoutes from "./routes/payments.routes";
 import syncRoutes from "./routes/sync.routes";
-
-dotenv.config();
 
 const app = express();
 
