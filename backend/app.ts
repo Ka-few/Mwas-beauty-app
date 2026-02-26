@@ -14,6 +14,7 @@ import licenseRoutes from './routes/license.routes';
 import { checkLicense } from './middleware/license.middleware';
 import { authenticate } from './middleware/auth.middleware';
 import { errorHandler } from './middleware/error';
+import paymentRoutes from './routes/payment.routes';
 
 const app = express();
 
@@ -58,6 +59,8 @@ app.post('/api/auth/login', login);
 
 // Public Sync Endpoints (Protected by branch_id in controller logic if needed later)
 app.use('/api/sync', syncRoutes);
+app.use('/api/payments', paymentRoutes); // Payment routes often need to be accessible, but can be protected by branch auth if needed
+app.use('/api/mpesa', paymentRoutes); // For callbacks which are usually /api/mpesa/callback
 
 // Protected routes
 app.use(authenticate);

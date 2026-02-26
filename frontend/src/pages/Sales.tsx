@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useToast } from '../components/ui/Toast';
-import { getSales, addSale, completeSale, getSaleDetails } from '../services/sales.api';
+import { getSales, addSale, completeSale, getSaleDetails, initiatePayment, getPaymentStatus } from '../services/sales.api';
 import { getClients } from '../services/clients.api';
 import { getServices } from '../services/services.api';
 import { getProducts } from '../services/products.api';
@@ -34,6 +34,17 @@ export default function Sales() {
   const [mpesaCode, setMpesaCode] = useState('');
   const [selectedSaleForPayment, setSelectedSaleForPayment] = useState<any>(null);
   const [hasInitialFilled, setHasInitialFilled] = useState(false);
+  const [mpesaFlow, setMpesaFlow] = useState<'Till' | 'STK'>('Till');
+  const [clientPhone, setClientPhone] = useState('');
+  const [isWaitingForMpesa, setIsWaitingForMpesa] = useState(false);
+
+  const formatPhone = (phone: string) => {
+    let cleaned = phone.replace(/\D/g, '');
+    if (cleaned.startsWith('0')) cleaned = '254' + cleaned.substring(1);
+    else if (cleaned.startsWith('+254')) cleaned = cleaned.substring(1);
+    else if (cleaned.length === 9) cleaned = '254' + cleaned;
+    return cleaned;
+  };
 
   const fetchAll = async () => {
     try {
@@ -68,6 +79,8 @@ export default function Sales() {
       // Fill client - if client_id is null, it's a walk-in, so leave selectedClient null
       if (bookingData.client_id) {
         setSelectedClient(bookingData.client_id);
+        const client = clients.find(c => c.id === bookingData.client_id);
+        if (client?.phone) setClientPhone(client.phone);
       }
 
       // Fill services
@@ -144,7 +157,8 @@ export default function Sales() {
         status: isPending ? 'PENDING' : 'COMPLETED',
         services: selectedServices.map(s => ({ service_id: s.service_id, stylist_id: s.stylist_id, price: s.price })),
         products: selectedProducts.map(p => ({ product_id: p.product_id, quantity: p.quantity, selling_price: p.selling_price })),
-        mpesa_code: (!isPending && paymentMethod === 'Mpesa') ? mpesaCode : null
+        mpesa_code: (!isPending && paymentMethod === 'Mpesa' && mpesaFlow === 'Till') ? mpesaCode : null,
+        phone_number: (!isPending && paymentMethod === 'Mpesa' && mpesaFlow === 'STK') ? formatPhone(clientPhone) : null
       };
 
       const response = await addSale(saleData);
@@ -155,7 +169,9 @@ export default function Sales() {
         response.totalAmount,
         selectedServices,
         selectedProducts,
-        isPending ? 'PENDING' : paymentMethod
+        isPending ? 'PENDING' : paymentMethod,
+        undefined,
+        (!isPending && paymentMethod === 'Mpesa') ? mpesaCode : undefined
       );
 
       // Reset form
@@ -182,15 +198,86 @@ export default function Sales() {
     setIsPaymentModalOpen(true);
   };
 
+  const pollPaymentStatus = async (invoiceId: string, saleId: number) => {
+    setIsWaitingForMpesa(true);
+    let attempts = 0;
+    const maxAttempts = 20; // 60 seconds (3s * 20)
+
+    const interval = setInterval(async () => {
+      try {
+        attempts++;
+        const statusData = await getPaymentStatus(invoiceId);
+
+        if (statusData && statusData.status === 'PAID') {
+          clearInterval(interval);
+          setIsWaitingForMpesa(false);
+          setIsPaymentModalOpen(false);
+
+          // Complete the local sale first to ensure DB is updated
+          await completeSale(saleId, {
+            payment_method: 'Mpesa',
+            mpesa_code: statusData.mpesa_receipt
+          });
+
+          showToast('Payment confirmed by M-Pesa!', 'success');
+
+          // Auto-print
+          const details = await getSaleDetails(saleId);
+          printReceipt(
+            details.id,
+            details.total_amount,
+            details.services,
+            details.products,
+            details.payment_method,
+            details.client_name,
+            details.mpesa_code
+          );
+
+          fetchAll();
+        } else if (statusData && (statusData.status === 'FAILED' || statusData.status === 'CANCELLED')) {
+          clearInterval(interval);
+          setIsWaitingForMpesa(false);
+          showToast(`M-Pesa Payment ${statusData.status}`, 'error');
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          setIsWaitingForMpesa(false);
+          showToast('Payment timeout. Please check your phone or use Till payment.', 'error');
+        }
+      } catch (err) {
+        console.error('Polling error', err);
+      }
+    }, 3000);
+  };
+
   const submitPayment = async () => {
-    if (paymentMethod === 'Mpesa' && !mpesaCode) {
-      showToast('M-Pesa confirmation code is required', 'error');
-      return;
+    if (paymentMethod === 'Mpesa') {
+      if (mpesaFlow === 'Till' && !mpesaCode) {
+        showToast('M-Pesa confirmation code is required', 'error');
+        return;
+      }
+      if (mpesaFlow === 'STK' && !clientPhone) {
+        showToast('Phone number is required for STK Push', 'error');
+        return;
+      }
     }
 
     try {
       if (selectedSaleForPayment) {
-        // Completing an existing pending sale
+        if (paymentMethod === 'Mpesa' && mpesaFlow === 'STK') {
+          // Trigger STK Push
+          const currentBranchId = 'B001'; // Should be dynamic
+          await initiatePayment({
+            branchId: currentBranchId,
+            invoiceId: `SALE-${selectedSaleForPayment.id}`,
+            amount: selectedSaleForPayment.total_amount,
+            phoneNumber: formatPhone(clientPhone)
+          });
+          showToast('STK Push sent to phone...', 'info');
+          pollPaymentStatus(`SALE-${selectedSaleForPayment.id}`, selectedSaleForPayment.id);
+          return;
+        }
+
+        // Completing an existing pending sale (Cash or Manual Till)
         await completeSale(selectedSaleForPayment.id, {
           payment_method: paymentMethod,
           mpesa_code: mpesaCode
@@ -198,37 +285,33 @@ export default function Sales() {
         showToast('Payment completed!', 'success');
 
         // Auto-print receipt
-        try {
-          const details = await getSaleDetails(selectedSaleForPayment.id);
-          printReceipt(
-            details.id,
-            details.total_amount,
-            details.services,
-            details.products,
-            details.payment_method,
-            details.client_name
-          );
-        } catch (printErr) {
-          console.error("Failed to print receipt after completion", printErr);
-          // Don't block the success toast for printing errors
-        }
+        const details = await getSaleDetails(selectedSaleForPayment.id);
+        printReceipt(
+          details.id,
+          details.total_amount,
+          details.services,
+          details.products,
+          details.payment_method,
+          details.client_name,
+          details.mpesa_code
+        );
 
-        showToast('Payment completed and receipt generated!', 'success');
         setSelectedSaleForPayment(null);
+        setIsPaymentModalOpen(false);
+        setMpesaCode('');
+        setClientPhone('');
+        fetchAll();
       } else {
         // Completing a new sale from scratch
         await handleRecordSale(false);
       }
-      setIsPaymentModalOpen(false);
-      setMpesaCode('');
-      fetchAll();
     } catch (error) {
       showToast('Failed to complete payment', 'error');
     }
   };
 
 
-  const printReceipt = (saleId: number, total: number, servicesList: any[], productsList: any[], method: string, clientNameOverride?: string) => {
+  const printReceipt = (saleId: number, total: number, servicesList: any[], productsList: any[], method: string, clientNameOverride?: string, mpesaCode?: string) => {
     const clientName = clientNameOverride || clients.find(c => c.id === selectedClient)?.name || 'Walk-in Client';
     const date = new Date().toLocaleString();
 
@@ -300,6 +383,7 @@ export default function Sales() {
               <p>${date}</p>
               <p>Client: ${clientName}</p>
               <p>Payment: ${method}</p>
+              ${mpesaCode ? `<p style="font-weight: bold; margin-top: 4px;">M-PESA: ${mpesaCode}</p>` : ''}
             </div>
             
             <div class="items">
@@ -612,7 +696,7 @@ export default function Sales() {
               <button
                 onClick={() => {
                   getSaleDetails(row.id).then(details => {
-                    printReceipt(details.id, details.total_amount, details.services, details.products, details.payment_method, details.client_name);
+                    printReceipt(details.id, details.total_amount, details.services, details.products, details.payment_method, details.client_name, details.mpesa_code);
                   });
                 }}
                 className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs font-bold"
@@ -651,7 +735,21 @@ export default function Sales() {
                 </select>
               </div>
 
-              {paymentMethod === 'Mpesa' && (
+              <div className="mb-4">
+                <label className="block text-gray-700 font-bold mb-2">M-Pesa Method</label>
+                <div className="flex gap-4 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="mpesaFlow" checked={mpesaFlow === 'Till'} onChange={() => setMpesaFlow('Till')} />
+                    <span>Pay to Till (Manual)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="mpesaFlow" checked={mpesaFlow === 'STK'} onChange={() => setMpesaFlow('STK')} />
+                    <span>STK Push (Prompt)</span>
+                  </label>
+                </div>
+              </div>
+
+              {paymentMethod === 'Mpesa' && mpesaFlow === 'Till' && (
                 <div className="mb-6 animate-in slide-in-from-top duration-300">
                   <label className="block text-gray-700 font-bold mb-2">M-Pesa Confirmation Code</label>
                   <input
@@ -665,18 +763,40 @@ export default function Sales() {
                 </div>
               )}
 
+              {paymentMethod === 'Mpesa' && mpesaFlow === 'STK' && (
+                <div className="mb-6 animate-in slide-in-from-top duration-300">
+                  <label className="block text-gray-700 font-bold mb-2">Client Phone Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 0722123456"
+                    value={clientPhone}
+                    onChange={(e) => setClientPhone(e.target.value)}
+                    className="border p-2 rounded w-full bg-white focus:ring-2 focus:ring-purple-500 outline-none font-mono"
+                    autoFocus
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Client will receive a prompt to enter PIN</p>
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <button
-                  onClick={() => { setIsPaymentModalOpen(false); setSelectedSaleForPayment(null); }}
+                  onClick={() => { setIsPaymentModalOpen(false); setSelectedSaleForPayment(null); setIsWaitingForMpesa(false); }}
                   className="flex-1 border border-gray-300 py-3 rounded font-bold text-gray-600 hover:bg-gray-50"
+                  disabled={isWaitingForMpesa}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={submitPayment}
-                  className="flex-1 bg-gold-500 hover:bg-gold-600 text-purple-900 py-3 rounded font-bold shadow-md transform active:scale-95 transition-all text-center"
+                  className={`flex-1 ${isWaitingForMpesa ? 'bg-gray-400' : 'bg-gold-500 hover:bg-gold-600'} text-purple-900 py-3 rounded font-bold shadow-md transform active:scale-95 transition-all text-center flex items-center justify-center gap-2`}
+                  disabled={isWaitingForMpesa}
                 >
-                  Confirm & Complete
+                  {isWaitingForMpesa ? (
+                    <>
+                      <span className="animate-spin h-5 w-5 border-2 border-purple-900 border-t-transparent rounded-full"></span>
+                      Waiting...
+                    </>
+                  ) : 'Confirm & Complete'}
                 </button>
               </div>
             </div>
