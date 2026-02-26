@@ -1,6 +1,15 @@
 import { Request, Response } from "express";
 import { pool } from "../db/postgres";
 import { MpesaService } from "../services/mpesa.service";
+import fs from "fs";
+import path from "path";
+
+const logFile = path.join(__dirname, "../../mpesa.log");
+const log = (msg: string) => {
+    const entry = `[${new Date().toISOString()}] ${msg}\n`;
+    fs.appendFileSync(logFile, entry);
+    console.log(msg);
+};
 
 const mpesaService = new MpesaService({
     baseUrl: process.env.MPESA_BASE_URL || 'https://sandbox.safaricom.co.ke',
@@ -15,6 +24,7 @@ export class PaymentsController {
 
     public static async initiate(req: Request, res: Response) {
         const { branchId, invoiceId, amount, phoneNumber } = req.body;
+        log(`[INITIATE] Attempt for Invoice: ${invoiceId}, Amount: ${amount}, Phone: ${phoneNumber}`);
 
         try {
             // 1. Log payment in DB
@@ -25,15 +35,16 @@ export class PaymentsController {
       `;
             const result = await pool.query(query, [branchId, invoiceId, amount, phoneNumber]);
             const paymentId = result.rows[0].id;
+            log(`[DB] Payment recorded with ID: ${paymentId}`);
 
-            // 2. Trigger STK Push
+            // 2. Trigger STK Push (Truncate AccountReference to 12 chars, Desc to 13)
             const mpesaResponse = await mpesaService.initiateStkPush(
                 phoneNumber,
                 amount,
-                invoiceId,
-                `Payment for ${invoiceId}`
+                invoiceId.substring(0, 12),
+                `Pay ${invoiceId}`.substring(0, 13)
             );
-            console.log('M-Pesa Response:', JSON.stringify(mpesaResponse));
+            log(`[MPESA] Response: ${JSON.stringify(mpesaResponse)}`);
 
             // 3. Log attempt
             await pool.query(
@@ -44,9 +55,8 @@ export class PaymentsController {
 
             res.status(200).json({ success: true, checkoutRequestId: mpesaResponse.CheckoutRequestID });
         } catch (error: any) {
-            console.error('Initiate error:', error);
             const errorDetails = error.response?.data || error.message;
-            console.error('Error details:', JSON.stringify(errorDetails));
+            log(`[ERROR] Initiate failed: ${error.message} - Details: ${JSON.stringify(errorDetails)}`);
             res.status(500).json({ error: error.message, details: errorDetails });
         }
     }
