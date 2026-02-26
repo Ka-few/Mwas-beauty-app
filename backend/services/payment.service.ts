@@ -26,7 +26,7 @@ export class PaymentService {
             try {
                 const response = await axios.post(`${this.cloudUrl}/api/payments/initiate`, {
                     branchId,
-                    invoiceId: invoiceId.toString().startsWith('SALE-') ? invoiceId : `SALE-${invoiceId}`,
+                    invoiceId: invoiceId.toString(),
                     amount,
                     phoneNumber
                 });
@@ -53,11 +53,9 @@ export class PaymentService {
      * Proxies to Cloud if available for real-time result from callbacks.
      */
     public async getPaymentStatus(invoiceId: string) {
-        const iId = invoiceId.toString().startsWith('SALE-') ? invoiceId : `SALE-${invoiceId}`;
-
         if (this.cloudUrl) {
             try {
-                const response = await axios.get(`${this.cloudUrl}/api/payments/${iId}/status`);
+                const response = await axios.get(`${this.cloudUrl}/api/payments/${invoiceId}/status`);
                 return response.data;
             } catch (error: any) {
                 console.error('[PAYMENT] Cloud status check failed:', error.message);
@@ -66,7 +64,7 @@ export class PaymentService {
 
         // Check local SQLite (if synced)
         if (this.db && typeof this.db.get === 'function') {
-            const sale = await this.db.get('SELECT status, mpesa_code FROM sales WHERE record_id = ? OR id = ?', iId, invoiceId);
+            const sale = await this.db.get('SELECT status, mpesa_code FROM sales WHERE record_id = ? OR id = ?', invoiceId, invoiceId);
             if (sale && sale.status === 'COMPLETED') {
                 return { status: 'PAID', mpesa_receipt: sale.mpesa_code };
             }

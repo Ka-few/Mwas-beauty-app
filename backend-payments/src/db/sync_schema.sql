@@ -160,6 +160,28 @@ CREATE TABLE IF NOT EXISTS payments (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Payment Attempts (Logs each STK push trigger)
+CREATE TABLE IF NOT EXISTS payment_attempts (
+    id SERIAL PRIMARY KEY,
+    payment_id UUID REFERENCES payments(id),
+    merchant_request_id TEXT NOT NULL,
+    checkout_request_id TEXT NOT NULL UNIQUE,
+    amount DECIMAL(12, 2) NOT NULL,
+    status TEXT DEFAULT 'INITIATED',
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- M-Pesa Callbacks (Audit log for incoming Safaricom data)
+CREATE TABLE IF NOT EXISTS mpesa_callbacks (
+    id SERIAL PRIMARY KEY,
+    checkout_request_id TEXT NOT NULL,
+    merchant_request_id TEXT NOT NULL,
+    result_code INTEGER NOT NULL,
+    result_description TEXT,
+    raw_payload JSONB,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Sync Logs
 CREATE TABLE IF NOT EXISTS sync_logs (
     id SERIAL PRIMARY KEY,

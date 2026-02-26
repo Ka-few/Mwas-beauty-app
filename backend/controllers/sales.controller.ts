@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { initializeDB } from '../db/database';
+import { initializeDB, generateUUID } from '../db/database';
 
 export async function getSales(req: Request, res: Response) {
   const db = await initializeDB();
@@ -28,15 +28,17 @@ export async function addSale(req: Request, res: Response) {
 
   const db = await initializeDB();
   try {
-    const { sale_id, totalAmount } = await db.transaction(async (tx: any) => {
+    const { sale_id, totalAmount, record_id } = await db.transaction(async (tx: any) => {
       // Insert sale
+      const record_id = generateUUID();
       const result = await tx.run(
-        'INSERT INTO sales (client_id, total_amount, payment_method, status, mpesa_code) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO sales (client_id, total_amount, payment_method, status, mpesa_code, record_id) VALUES (?, ?, ?, ?, ?, ?)',
         client_id || null,
         0, // temp total
         payment_method || 'PENDING',
         status || 'PENDING',
-        req.body.mpesa_code || null
+        req.body.mpesa_code || null,
+        record_id
       );
       const sale_id = result.lastID;
 
@@ -70,10 +72,10 @@ export async function addSale(req: Request, res: Response) {
       // Update total
       await tx.run('UPDATE sales SET total_amount = ? WHERE id = ?', totalAmount, sale_id);
 
-      return { sale_id, totalAmount };
+      return { sale_id, totalAmount, record_id };
     });
 
-    res.json({ sale_id, totalAmount });
+    res.json({ sale_id, totalAmount, record_id });
 
   } catch (err: any) {
     console.error('CRITICAL ERROR in addSale:', err);

@@ -163,6 +163,19 @@ export default function Sales() {
 
       const response = await addSale(saleData);
 
+      // Handle STK Push trigger for new sales
+      if (!isPending && paymentMethod === 'Mpesa' && mpesaFlow === 'STK') {
+        const currentBranchId = 'B001';
+        await initiatePayment({
+          branchId: currentBranchId,
+          invoiceId: response.record_id,
+          amount: response.totalAmount,
+          phoneNumber: formatPhone(clientPhone)
+        });
+        showToast('STK Push sent to phone...', 'info');
+        pollPaymentStatus(response.record_id, response.sale_id);
+      }
+
       // Print receipt
       printReceipt(
         response.sale_id,
@@ -180,12 +193,17 @@ export default function Sales() {
       setSelectedProducts([]);
       setPaymentMethod('Cash');
       setMpesaCode('');
+      setClientPhone('');
       setIsPaymentModalOpen(false);
 
       // Refresh data
       fetchAll();
 
-      showToast(isPending ? 'Billing recorded and receipt generated!' : 'Sale completed successfully!', 'success');
+      if (!isPending && paymentMethod === 'Mpesa' && mpesaFlow === 'STK') {
+        // Toast already shown above
+      } else {
+        showToast(isPending ? 'Billing recorded and receipt generated!' : 'Sale completed successfully!', 'success');
+      }
 
     } catch (error) {
       console.error("Sale Error", error);
@@ -268,12 +286,12 @@ export default function Sales() {
           const currentBranchId = 'B001'; // Should be dynamic
           await initiatePayment({
             branchId: currentBranchId,
-            invoiceId: `SALE-${selectedSaleForPayment.id}`,
+            invoiceId: selectedSaleForPayment.record_id,
             amount: selectedSaleForPayment.total_amount,
             phoneNumber: formatPhone(clientPhone)
           });
           showToast('STK Push sent to phone...', 'info');
-          pollPaymentStatus(`SALE-${selectedSaleForPayment.id}`, selectedSaleForPayment.id);
+          pollPaymentStatus(selectedSaleForPayment.record_id, selectedSaleForPayment.id);
           return;
         }
 
