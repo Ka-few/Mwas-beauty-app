@@ -33,6 +33,7 @@ export class PaymentsController {
                 invoiceId,
                 `Payment for ${invoiceId}`
             );
+            console.log('M-Pesa Response:', JSON.stringify(mpesaResponse));
 
             // 3. Log attempt
             await pool.query(
@@ -44,7 +45,9 @@ export class PaymentsController {
             res.status(200).json({ success: true, checkoutRequestId: mpesaResponse.CheckoutRequestID });
         } catch (error: any) {
             console.error('Initiate error:', error);
-            res.status(500).json({ error: error.message });
+            const errorDetails = error.response?.data || error.message;
+            console.error('Error details:', JSON.stringify(errorDetails));
+            res.status(500).json({ error: error.message, details: errorDetails });
         }
     }
 

@@ -60,7 +60,7 @@ export class MpesaService {
         };
 
         const response = await axios.post(
-            `${this.config.baseUrl}/mpesa/stkpush/v1/query`, // Using v1 query or process logic depending on sandbox/prod
+            `${this.config.baseUrl}/mpesa/stkpush/v1/processrequest`,
             payload,
             { headers: { Authorization: `Bearer ${token}` } }
         );
