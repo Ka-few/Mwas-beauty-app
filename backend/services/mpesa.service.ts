@@ -63,7 +63,7 @@ export class MpesaService {
             TransactionDesc: transactionDesc,
         };
 
-        const response = await axios.post(`${this.config.baseUrl}/mpesa/stkpush/v1/query`, payload, {
+        const response = await axios.post(`${this.config.baseUrl}/mpesa/stkpush/v1/processrequest`, payload, {
             headers: { Authorization: `Bearer ${token}` },
         });
 
