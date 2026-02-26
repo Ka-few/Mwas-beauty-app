@@ -23,15 +23,15 @@ const paymentService = new PaymentService(mpesaService, db);
 const paymentController = new PaymentController(paymentService);
 
 // Payment Initiation
-router.post('/payments/initiate', paymentController.initiate);
+router.post('/initiate', paymentController.initiate);
 
 // Payment Status check (Polling)
-router.get('/payments/:invoiceId/status', paymentController.getStatus);
+router.get('/:invoiceId/status', paymentController.getStatus);
 
 // M-Pesa Callback
-router.post('/mpesa/callback', paymentController.callback);
+router.post('/callback', paymentController.callback);
 
 // Manual Reconciliation
-router.get('/payments/reconcile/:invoiceId', paymentController.reconcile);
+router.get('/reconcile/:invoiceId', paymentController.reconcile);
 
 export default router;

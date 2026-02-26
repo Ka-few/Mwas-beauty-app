@@ -45,7 +45,7 @@ export class PaymentService {
             invoiceId,
             `Payment for ${invoiceId}`
         );
-        return { checkoutRequestId: mpesaResponse.CheckoutRequestID };
+        return { paymentId: null, checkoutRequestId: mpesaResponse.CheckoutRequestID };
     }
 
     /**
