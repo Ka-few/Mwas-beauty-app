@@ -76,11 +76,39 @@ export default function Sales() {
     if (bookingData && stylists.length > 0 && services.length > 0 && !hasInitialFilled) {
       console.log('Auto-filling sale from booking:', bookingData);
 
-      // Fill client - if client_id is null, it's a walk-in, so leave selectedClient null
+      // Fill client
       if (bookingData.client_id) {
         setSelectedClient(bookingData.client_id);
         const client = clients.find(c => c.id === bookingData.client_id);
         if (client?.phone) setClientPhone(client.phone);
+      } else if (bookingData.customer_name) {
+        // Try to find existing client by name or phone
+        let client = clients.find(c =>
+          c.name.toLowerCase() === bookingData.customer_name.toLowerCase() ||
+          (c.phone && bookingData.phone_number && c.phone === bookingData.phone_number)
+        );
+
+        if (client) {
+          setSelectedClient(client.id);
+          if (client.phone) setClientPhone(client.phone);
+        } else {
+          // Auto-create client
+          import('../services/clients.api').then(({ addClient }) => {
+            addClient({
+              name: bookingData.customer_name,
+              phone: bookingData.phone_number || '',
+              email: '',
+              gender: 'Other'
+            }).then((res: any) => {
+              const newClient = res.client || res; // depending on the API response structure
+              if (newClient && newClient.id) {
+                setClients(prev => [...prev, newClient]);
+                setSelectedClient(newClient.id);
+                if (newClient.phone) setClientPhone(newClient.phone);
+              }
+            }).catch(err => console.error('Failed to auto-create client', err));
+          });
+        }
       }
 
       // Fill services
@@ -145,7 +173,7 @@ export default function Sales() {
       return;
     }
 
-    if (!isPending && paymentMethod === 'Mpesa' && !mpesaCode) {
+    if (!isPending && paymentMethod === 'Mpesa' && !isPaymentModalOpen) {
       setIsPaymentModalOpen(true);
       return;
     }
@@ -173,35 +201,37 @@ export default function Sales() {
           phoneNumber: formatPhone(clientPhone)
         });
         showToast('STK Push sent to phone...', 'info');
-        pollPaymentStatus(response.record_id, response.sale_id);
-      }
-
-      // Print receipt
-      printReceipt(
-        response.sale_id,
-        response.totalAmount,
-        selectedServices,
-        selectedProducts,
-        isPending ? 'PENDING' : paymentMethod,
-        undefined,
-        (!isPending && paymentMethod === 'Mpesa') ? mpesaCode : undefined
-      );
-
-      // Reset form
-      setSelectedClient(null);
-      setSelectedServices([]);
-      setSelectedProducts([]);
-      setPaymentMethod('Cash');
-      setMpesaCode('');
-      setClientPhone('');
-      setIsPaymentModalOpen(false);
-
-      // Refresh data
-      fetchAll();
-
-      if (!isPending && paymentMethod === 'Mpesa' && mpesaFlow === 'STK') {
-        // Toast already shown above
+        pollPaymentStatus(
+          response.record_id,
+          response.sale_id,
+          response.totalAmount,
+          selectedServices,
+          selectedProducts,
+          clients.find(c => c.id === selectedClient)?.name || 'Walk-in Client'
+        );
       } else {
+        // Print receipt for Cash, Till, or Pending
+        printReceipt(
+          response.sale_id,
+          response.totalAmount,
+          selectedServices,
+          selectedProducts,
+          isPending ? 'PENDING' : paymentMethod,
+          undefined,
+          (!isPending && paymentMethod === 'Mpesa') ? mpesaCode : undefined
+        );
+
+        // Reset form
+        setSelectedClient(null);
+        setSelectedServices([]);
+        setSelectedProducts([]);
+        setPaymentMethod('Cash');
+        setMpesaCode('');
+        setClientPhone('');
+        setIsPaymentModalOpen(false);
+
+        // Refresh data
+        fetchAll();
         showToast(isPending ? 'Billing recorded and receipt generated!' : 'Sale completed successfully!', 'success');
       }
 
@@ -216,7 +246,14 @@ export default function Sales() {
     setIsPaymentModalOpen(true);
   };
 
-  const pollPaymentStatus = async (invoiceId: string, saleId: number) => {
+  const pollPaymentStatus = async (
+    invoiceId: string,
+    saleId: number,
+    totalAmountPassed?: number,
+    servicesPassed?: any[],
+    productsPassed?: any[],
+    clientNamePassed?: string
+  ) => {
     setIsWaitingForMpesa(true);
     let attempts = 0;
     const maxAttempts = 20; // 60 seconds (3s * 20)
@@ -240,16 +277,36 @@ export default function Sales() {
           showToast('Payment confirmed by M-Pesa!', 'success');
 
           // Auto-print
-          const details = await getSaleDetails(saleId);
-          printReceipt(
-            details.id,
-            details.total_amount,
-            details.services,
-            details.products,
-            details.payment_method,
-            details.client_name,
-            details.mpesa_code
-          );
+          if (servicesPassed && productsPassed) {
+            printReceipt(
+              saleId,
+              totalAmountPassed || 0,
+              servicesPassed,
+              productsPassed,
+              'Mpesa',
+              clientNamePassed,
+              statusData.mpesa_receipt
+            );
+          } else {
+            const details = await getSaleDetails(saleId);
+            printReceipt(
+              details.id,
+              details.total_amount,
+              details.services,
+              details.products,
+              details.payment_method,
+              details.client_name,
+              details.mpesa_code
+            );
+          }
+
+          // Reset form since payment was successful
+          setSelectedClient(null);
+          setSelectedServices([]);
+          setSelectedProducts([]);
+          setPaymentMethod('Cash');
+          setMpesaCode('');
+          setClientPhone('');
 
           fetchAll();
         } else if (statusData && (statusData.status === 'FAILED' || statusData.status === 'CANCELLED')) {
@@ -738,7 +795,7 @@ export default function Sales() {
               <p className="text-gray-600 mb-4">
                 {selectedSaleForPayment
                   ? `Completing payment for Sale #${selectedSaleForPayment.id} (KES ${selectedSaleForPayment.total_amount.toLocaleString()})`
-                  : 'Complete the current sale transaction.'}
+                  : `Complete the current sale transaction. Total: KES ${(selectedServices.reduce((sum, s) => sum + s.price, 0) + selectedProducts.reduce((sum, p) => sum + p.selling_price * p.quantity, 0)).toLocaleString()}`}
               </p>
 
               <div className="mb-4">

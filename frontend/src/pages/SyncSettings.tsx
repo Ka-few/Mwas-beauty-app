@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { syncService, SyncConfig, SyncResult } from '../services/sync.service';
 import { useToast } from '../components/ui/Toast';
 

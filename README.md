@@ -11,12 +11,14 @@
 - **Online & Manual Bookings:** Manage client appointments with ease.
 - **Stylist Availability:** Real-time visibility into staff schedules to prevent overbooking.
 - **Booking Status:** Track pending, confirmed, and completed appointments.
+- **Smart Client Creation:** Seamlessly convert walk-ins and guest bookings into tracked client profiles automatically during checkout.
 
 ### 💰 Sales Management
 - **Point of Sale (POS):** Fast and intuitive interface for recording service and product sales.
+- **M-Pesa STK Push Integration:** Seamlessly trigger mobile payment prompts directly to the client's phone and automatically verify transactions.
+- **Smart Receipts:** Auto-generate and print accurate, branded receipts only after successful payment confirmation.
 - **Client Tracking:** Assign sales to specific clients or walk-ins.
 - **Commission Tracking:** Automatically calculate commissions for stylists based on services performed.
-- **Receipts:** Generate and print professional receipts with company branding.
 
 ### 👥 Staff & Client Management
 - **Stylist Management:** Manage staff profiles and commission rates.
