@@ -94,7 +94,18 @@ export class PaymentService {
 
             } catch (queryError: any) {
                 // Sandbox returns an error while STK is still awaiting user input
-                console.log(`[PAYMENT] Query still pending for ${invoiceId}`);
+                // Or if we hit the 1 minute polling rate limit (Spike Arrest - 429)
+                const errorData = queryError.response?.data;
+                const statusCode = queryError.response?.status;
+
+                if (statusCode === 429) {
+                    console.log(`[PAYMENT] Rate limit (Spike Arrest) hit for ${invoiceId}. Still pending.`);
+                } else if (errorData && errorData.errorMessage) {
+                    console.log(`[PAYMENT] Query error for ${invoiceId}: ${errorData.errorMessage}`);
+                } else {
+                    console.log(`[PAYMENT] Query still pending for ${invoiceId}`);
+                }
+
                 return { status: 'PENDING' };
             }
         }

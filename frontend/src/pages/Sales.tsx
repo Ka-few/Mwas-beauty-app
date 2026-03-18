@@ -321,7 +321,7 @@ export default function Sales() {
       } catch (err) {
         console.error('Polling error', err);
       }
-    }, 3000);
+    }, 20000); // Poll every 20 seconds to avoid Daraja API rate limits (Spike Arrest)
   };
 
   const submitPayment = async () => {
