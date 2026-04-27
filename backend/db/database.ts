@@ -91,8 +91,9 @@ export async function initializeDB(): Promise<any> {
                     return results;
                 }),
                 run: (sql: string, ...params: any[]) => enqueue(async () => {
-                    if (params.length > 0) {
-                        db.run(sql, params);
+                    const cleanParams = params.length > 0 ? params.map(p => p === undefined ? null : p) : undefined;
+                    if (cleanParams) {
+                        db.run(sql, cleanParams);
                     } else {
                         db.run(sql);
                     }
@@ -122,7 +123,8 @@ export async function initializeDB(): Promise<any> {
                         // Use a restricted nested wrapper for transaction safety
                         const txWrapper = {
                             run: async (sql: string, ...params: any[]) => {
-                                db.run(sql, params.length > 0 ? params : undefined);
+                                const cleanParams = params.length > 0 ? params.map(p => p === undefined ? null : p) : undefined;
+                                db.run(sql, cleanParams);
                                 return {
                                     get lastID() {
                                         const res = db.exec("SELECT last_insert_rowid();");
@@ -209,6 +211,7 @@ CREATE TABLE IF NOT EXISTS stylists (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 name TEXT NOT NULL,
 phone TEXT,
+speciality TEXT,
 commission_rate REAL DEFAULT 20.0,
 is_active BOOLEAN DEFAULT 1,
 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -219,6 +222,7 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 CREATE TABLE IF NOT EXISTS services (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 name TEXT NOT NULL,
+category TEXT,
 price REAL NOT NULL,
 duration_minutes INTEGER,
 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -336,6 +340,15 @@ CREATE TABLE IF NOT EXISTS consumable_usage (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (consumable_id) REFERENCES consumables(id)
 );
+
+-- Stylist Services Junction Table
+CREATE TABLE IF NOT EXISTS stylist_services (
+    stylist_id INTEGER NOT NULL,
+    service_id INTEGER NOT NULL,
+    PRIMARY KEY (stylist_id, service_id),
+    FOREIGN KEY (stylist_id) REFERENCES stylists(id) ON DELETE CASCADE,
+    FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
+);
 `;
 
     try {
@@ -345,10 +358,26 @@ CREATE TABLE IF NOT EXISTS consumable_usage (
         throw error;
     }
 
-    // 2. Safe migration: Add commission_rate if missing from old tables
+    // 2. Safe migration: Add speciality if missing from old tables
+    try {
+        await db.exec('ALTER TABLE stylists ADD COLUMN speciality TEXT;');
+        console.log('Successfully added speciality column to stylists table');
+    } catch (e: any) {
+        // Ignore errors if column already exists
+    }
+
+    // 2b. Safe migration: Add commission_rate if missing from old tables
     try {
         await db.exec('ALTER TABLE stylists ADD COLUMN commission_rate REAL DEFAULT 20.0;');
         console.log('Successfully added commission_rate column to stylists table');
+    } catch (e: any) {
+        // Ignore errors if column already exists
+    }
+
+    // 2c. Safe migration: Add category to services if missing
+    try {
+        await db.exec('ALTER TABLE services ADD COLUMN category TEXT;');
+        console.log('Successfully added category column to services table');
     } catch (e: any) {
         // Ignore errors if column already exists
     }

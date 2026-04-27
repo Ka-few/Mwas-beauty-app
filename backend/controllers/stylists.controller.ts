@@ -12,14 +12,14 @@ export async function getStylists(req: Request, res: Response) {
 }
 
 export async function addStylist(req: Request, res: Response) {
-  const { name, phone, commission_rate } = req.body;
+  const { name, phone, commission_rate, speciality } = req.body;
   if (!name) {
     res.status(400).json({ message: 'Stylist name is required' });
     return;
   }
   const db = await initializeDB();
   try {
-    const result = await db.run('INSERT INTO stylists (name, phone, commission_rate) VALUES (?, ?, ?)', name, phone, commission_rate || 20.0);
+    const result = await db.run('INSERT INTO stylists (name, phone, commission_rate, speciality) VALUES (?, ?, ?, ?)', name, phone, commission_rate || 20.0, speciality);
     res.status(201).json({ id: result.lastID });
   } catch (error) {
     res.status(500).json({ message: 'Error adding stylist' });
@@ -28,12 +28,12 @@ export async function addStylist(req: Request, res: Response) {
 
 export async function updateStylist(req: Request, res: Response) {
   const { id } = req.params;
-  const { name, phone, is_active, commission_rate } = req.body;
+  const { name, phone, is_active, commission_rate, speciality } = req.body;
   const db = await initializeDB();
   try {
     await db.run(
-      'UPDATE stylists SET name = ?, phone = ?, is_active = ?, commission_rate = ? WHERE id = ?',
-      name, phone, is_active ? 1 : 0, commission_rate, id
+      'UPDATE stylists SET name = ?, phone = ?, is_active = ?, commission_rate = ?, speciality = ? WHERE id = ?',
+      name, phone, is_active ? 1 : 0, commission_rate, speciality, id
     );
     res.json({ message: 'Stylist updated' });
   } catch (error) {

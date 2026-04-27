@@ -5,11 +5,12 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { bookingService } from '../services/bookings.service';
-import { getServices } from '../services/services.api';
+import { getServices, getServiceStylists } from '../services/services.api';
 import { getStylists } from '../services/stylists.api';
 import { Booking, BookingAnalytics, BookingSource, BookingStatus, BookingType } from '../types/booking';
 import DataTable from '../components/tables/DataTable';
 import { getClients } from '../services/clients.api';
+import { useToast } from '../components/ui/Toast';
 
 const locales = {
     'en-US': enUS,
@@ -24,11 +25,13 @@ const localizer = dateFnsLocalizer({
 });
 
 export default function Bookings() {
+    const { showToast } = useToast();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'list' | 'calendar' | 'analytics'>('calendar');
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [services, setServices] = useState<any[]>([]);
     const [stylists, setStylists] = useState<any[]>([]);
+    const [serviceStylists, setServiceStylists] = useState<Record<number, any[]>>({});
     const [analytics, setAnalytics] = useState<BookingAnalytics | null>(null);
     const [clients, setClients] = useState<any[]>([]);
     const [showModal, setShowModal] = useState(false);
@@ -70,9 +73,26 @@ export default function Bookings() {
         }
     };
 
+    const fetchStylistsForService = async (serviceId: number) => {
+        if (serviceStylists[serviceId]) return;
+        try {
+            const data = await getServiceStylists(serviceId);
+            setServiceStylists(prev => ({ ...prev, [serviceId]: data }));
+        } catch (err) {
+            console.error('Error fetching stylists for service:', serviceId, err);
+        }
+    };
+
     useEffect(() => {
         fetchData();
     }, []);
+
+    // Fetch stylists for any existing services when modal opens
+    useEffect(() => {
+        if (showModal && formData.services) {
+            formData.services.forEach(s => fetchStylistsForService(s.service_id));
+        }
+    }, [showModal, formData.services]);
 
     const handleOpenModal = (booking: Partial<Booking> | null = null) => {
         if (booking) {
@@ -122,7 +142,7 @@ export default function Bookings() {
         ).slice(0, 5);
     }, [clients, clientSearch]);
 
-    const handleAddService = (serviceId: string) => {
+    const handleAddService = async (serviceId: string) => {
         if (!serviceId) return;
         const sId = Number(serviceId);
         const service = services.find(s => s.id === sId);
@@ -130,6 +150,9 @@ export default function Bookings() {
             const currentServices = [...(formData.services || [])];
             // Check if already added
             if (currentServices.find(s => s.service_id === sId)) return;
+
+            // Fetch available stylists for this service
+            await fetchStylistsForService(sId);
 
             currentServices.push({
                 service_id: sId,
@@ -160,21 +183,24 @@ export default function Bookings() {
         try {
             if (editingBooking?.id) {
                 await bookingService.updateBooking(editingBooking.id, formData);
+                showToast('Booking updated successfully', 'success');
             } else {
                 await bookingService.createBooking(formData);
+                showToast('Booking created successfully', 'success');
             }
             setShowModal(false);
             fetchData();
         } catch (error: any) {
             console.error('Error saving booking:', error);
             const errMsg = error.response?.data?.error || error.message || 'Failed to save booking';
-            alert(errMsg);
+            showToast(errMsg, 'error');
         }
     };
 
     const handleStatusChange = async (id: number, status: BookingStatus) => {
         try {
             await bookingService.updateBooking(id, { status });
+            showToast(`Booking marked as ${status}`, 'success');
 
             if (status === 'completed') {
                 const booking = bookings.find(b => b.id === id);
@@ -187,6 +213,7 @@ export default function Bookings() {
             fetchData();
         } catch (error) {
             console.error('Error updating status:', error);
+            showToast('Failed to update booking status', 'error');
         }
     };
 
@@ -194,9 +221,11 @@ export default function Bookings() {
         if (window.confirm('Are you sure you want to delete this booking?')) {
             try {
                 await bookingService.deleteBooking(id);
+                showToast('Booking deleted successfully', 'success');
                 fetchData();
             } catch (error) {
                 console.error('Error deleting booking:', error);
+                showToast('Failed to delete booking', 'error');
             }
         }
     };
@@ -419,7 +448,9 @@ export default function Bookings() {
                                                         className="flex-1 border border-gray-100 p-1 rounded text-xs bg-gray-50 focus:border-purple-300 outline-none"
                                                     >
                                                         <option value="">Any Stylist</option>
-                                                        {stylists.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                                                        {(serviceStylists[item.service_id] && serviceStylists[item.service_id].length > 0 ? serviceStylists[item.service_id] : stylists).map(st => (
+                                                            <option key={st.id} value={st.id}>{st.name} {st.speciality ? `(${st.speciality})` : ''}</option>
+                                                        ))}
                                                     </select>
                                                 </div>
                                                 <button

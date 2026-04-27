@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { getClients, addClient, updateClient, deleteClient } from '../services/clients.api';
 import DataTable from '../components/tables/DataTable';
+import { useToast } from '../components/ui/Toast';
 
 export default function Clients() {
+  const { showToast } = useToast();
   const [clients, setClients] = useState<any[]>([]);
   const [form, setForm] = useState({ name: '', phone: '', notes: '' });
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -29,14 +31,21 @@ export default function Clients() {
   useEffect(() => { fetchClients(); }, []);
 
   const handleSubmit = async () => {
-    if (editingId) {
-      await updateClient(editingId, form);
-    } else {
-      await addClient(form);
+    try {
+      if (editingId) {
+        await updateClient(editingId, form);
+        showToast('Client updated successfully', 'success');
+      } else {
+        await addClient(form);
+        showToast('Client added successfully', 'success');
+      }
+      setForm({ name: '', phone: '', notes: '' });
+      setEditingId(null);
+      fetchClients();
+    } catch (err: any) {
+      console.error('Failed to save client:', err);
+      showToast(err.response?.data?.message || 'Failed to save client', 'error');
     }
-    setForm({ name: '', phone: '', notes: '' });
-    setEditingId(null);
-    fetchClients();
   };
 
   const handleEdit = (client: any) => {
@@ -46,8 +55,14 @@ export default function Clients() {
 
   const handleDelete = async (id: number) => {
     if (confirm('Are you sure you want to delete this client?')) {
-      await deleteClient(id);
-      fetchClients();
+      try {
+        await deleteClient(id);
+        showToast('Client deleted successfully', 'success');
+        fetchClients();
+      } catch (err: any) {
+        console.error('Failed to delete client:', err);
+        showToast(err.response?.data?.message || 'Failed to delete client', 'error');
+      }
     }
   };
 
