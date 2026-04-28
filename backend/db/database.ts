@@ -349,6 +349,53 @@ CREATE TABLE IF NOT EXISTS stylist_services (
     FOREIGN KEY (stylist_id) REFERENCES stylists(id) ON DELETE CASCADE,
     FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
 );
+
+-- Chart of Accounts
+CREATE TABLE IF NOT EXISTS accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')),
+    parent_id INTEGER,
+    record_id TEXT,
+    last_modified DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_id) REFERENCES accounts(id)
+);
+
+-- Journal Entries
+CREATE TABLE IF NOT EXISTS journal_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reference TEXT,
+    description TEXT,
+    source_module TEXT,
+    record_id TEXT,
+    last_modified DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Journal Lines
+CREATE TABLE IF NOT EXISTS journal_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    journal_entry_id INTEGER NOT NULL,
+    account_id INTEGER NOT NULL,
+    debit REAL DEFAULT 0.0,
+    credit REAL DEFAULT 0.0,
+    record_id TEXT,
+    last_modified DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
+    FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+
+-- Accounting Transactions (Detailed logs)
+CREATE TABLE IF NOT EXISTS accounting_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    reference_id INTEGER,
+    metadata_json TEXT,
+    journal_entry_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id)
+);
 `;
 
     try {
@@ -667,17 +714,58 @@ CREATE TABLE IF NOT EXISTS stylist_services (
         console.error('Error initializing licensing settings', e);
     }
 
-    // 6. Fix potentially corrupted admin hash from previous bad build
+    // 7. Seed Default Chart of Accounts
     try {
-        const admin = await db.get("SELECT password_hash FROM users WHERE username = 'admin'");
-        if (admin && (admin.password_hash.includes('7vN0o8fR') || !admin.password_hash.startsWith('$'))) {
-            // It's either the corrupted hash or plain text - update to good hash
-            const goodHash = '$2a$10$BNO/5FMT3L.6fyc5kLSeI.MoAY62zpfC17.dGysZ9cTIUWY/zwWDu';
-            await db.run("UPDATE users SET password_hash = ? WHERE username = 'admin'", goodHash);
-            console.log('Successfully updated/repaired admin password hash');
+        const count = await db.get("SELECT COUNT(*) as count FROM accounts");
+        if (count && count.count === 0) {
+            console.log('Seeding default Chart of Accounts...');
+            const coa = [
+                // Assets
+                { code: '1000', name: 'Cash', type: 'Asset' },
+                { code: '1100', name: 'M-Pesa', type: 'Asset' },
+                { code: '1200', name: 'Bank', type: 'Asset' },
+                { code: '1300', name: 'Inventory - Products', type: 'Asset' },
+                { code: '1400', name: 'Inventory - Consumables', type: 'Asset' },
+                // Liabilities
+                { code: '2000', name: 'Accounts Payable', type: 'Liability' },
+                { code: '2100', name: 'Commission Payable', type: 'Liability' },
+                { code: '2200', name: 'Taxes Payable', type: 'Liability' },
+                // Equity
+                { code: '3000', name: 'Owner Equity', type: 'Equity' },
+                { code: '3100', name: 'Retained Earnings', type: 'Equity' },
+                // Revenue
+                { code: '4000', name: 'Service Revenue', type: 'Revenue' },
+                { code: '4100', name: 'Product Sales', type: 'Revenue' },
+                // Cost of Sales
+                { code: '5000', name: 'COGS - Products', type: 'Cost of Sales' },
+                { code: '5100', name: 'Cost of Consumables', type: 'Cost of Sales' },
+                // Expenses
+                { code: '6000', name: 'Rent', type: 'Expense' },
+                { code: '6100', name: 'Salaries', type: 'Expense' },
+                { code: '6200', name: 'Commission Expense', type: 'Expense' },
+                { code: '6300', name: 'Utilities', type: 'Expense' },
+                { code: '6400', name: 'Marketing', type: 'Expense' },
+                { code: '6500', name: 'M-Pesa Fees', type: 'Expense' }
+            ];
+
+            await db.transaction(async (tx: any) => {
+                for (const account of coa) {
+                    // Map 'Cost of Sales' to 'Expense' for the CHECK constraint if needed, 
+                    // but I added it to the set of allowed types in the table definition.
+                    // Actually, let's stick to the 5 standard types for the CHECK constraint and use naming for subclasses.
+                    // Wait, I used: CHECK(type IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense'))
+                    // So I should map 'Cost of Sales' to 'Expense'.
+                    const type = account.type === 'Cost of Sales' ? 'Expense' : account.type;
+                    await tx.run(
+                        "INSERT INTO accounts (code, name, type, record_id) VALUES (?, ?, ?, ?)",
+                        account.code, account.name, type, generateUUID()
+                    );
+                }
+            });
+            console.log('Successfully seeded default COA');
         }
     } catch (e) {
-        console.error('Error repairing admin hash', e);
+        console.error('Error seeding COA:', e);
     }
 }
 

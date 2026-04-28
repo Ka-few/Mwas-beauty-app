@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 interface LicenseStatus {
     isActivated: boolean;
@@ -19,15 +19,13 @@ interface LicenseContextType {
 
 const LicenseContext = createContext<LicenseContextType | undefined>(undefined);
 
-const API_BASE_URL = 'http://localhost:3001/api';
-
 export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [status, setStatus] = useState<LicenseStatus | null>(null);
     const [loading, setLoading] = useState(true);
 
     const refreshStatus = async () => {
         try {
-            const response = await axios.get(`${API_BASE_URL}/license/status`);
+            const response = await api.get('/license/status');
             setStatus(response.data);
         } catch (error) {
             console.error('Failed to fetch license status', error);
@@ -37,7 +35,7 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     const activate = async (key: string) => {
-        await axios.post(`${API_BASE_URL}/license/activate`, { key });
+        await api.post('/license/activate', { key });
         await refreshStatus();
     };
 

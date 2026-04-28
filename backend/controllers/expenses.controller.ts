@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { initializeDB } from '../db/database';
+import { AccountingService } from '../services/accounting.service';
 
 export async function getExpenses(req: Request, res: Response) {
     const db = await initializeDB();
@@ -25,7 +26,19 @@ export async function addExpense(req: Request, res: Response) {
             'INSERT INTO expenses (category, amount, date, description) VALUES (?, ?, ?, ?)',
             category, amount, date, description || ''
         );
-        res.status(201).json({ id: result.lastID, message: 'Expense added' });
+        const expense_id = result.lastID;
+
+        // --- ACCOUNTING INTEGRATION ---
+        await AccountingService.postExpense({
+            id: expense_id,
+            category,
+            amount,
+            description,
+            date
+        });
+        // -------------------------------
+
+        res.status(201).json({ id: expense_id, message: 'Expense added' });
     } catch (error) {
         res.status(500).json({ message: 'Error adding expense' });
     }

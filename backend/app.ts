@@ -15,6 +15,7 @@ import { checkLicense } from './middleware/license.middleware';
 import { authenticate } from './middleware/auth.middleware';
 import { errorHandler } from './middleware/error';
 import paymentRoutes from './routes/payment.routes';
+import accountingRoutes from './routes/accounting.routes';
 
 const app = express();
 
@@ -74,6 +75,7 @@ app.use('/api/auth', authRoutes); // authRoutes now protects everything except /
 app.use('/api/expenses', expensesRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/consumables', consumablesRoutes);
+app.use('/api/accounting', accountingRoutes);
 
 
 // Global Error Handler

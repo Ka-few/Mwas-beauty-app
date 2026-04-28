@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { initializeDB } from '../db/database';
+import { AccountingService } from '../services/accounting.service';
 
 export async function getConsumables(req: Request, res: Response) {
     const db = await initializeDB();
@@ -83,6 +84,18 @@ export async function updateStock(req: Request, res: Response) {
                 'INSERT INTO consumable_usage (consumable_id, previous_stock, current_stock, usage_amount, notes) VALUES (?, ?, ?, ?, ?)',
                 id, previous_stock, physical_count, usage, notes || 'End-of-Day Update'
             );
+
+            // --- ACCOUNTING INTEGRATION ---
+            // We assume a cost_impact if we move stock. 
+            // In a real app, we'd fetch the unit cost. For now, we'll use a placeholder or 1.0 per unit.
+            if (usage > 0) {
+                await AccountingService.postConsumableUsage({
+                    id: consumable.id,
+                    name: consumable.name,
+                    cost_impact: usage * 1.0 // Placeholder rate
+                }, tx);
+            }
+            // -------------------------------
         });
 
         res.json({ message: 'Stock updated and usage logged', usage });

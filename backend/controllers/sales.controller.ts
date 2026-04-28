@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { initializeDB, generateUUID } from '../db/database';
+import { AccountingService } from '../services/accounting.service';
 
 export async function getSales(req: Request, res: Response) {
   const db = await initializeDB();
@@ -71,6 +72,42 @@ export async function addSale(req: Request, res: Response) {
 
       // Update total
       await tx.run('UPDATE sales SET total_amount = ? WHERE id = ?', totalAmount, sale_id);
+
+      // --- ACCOUNTING INTEGRATION ---
+      // Enrich services with stylist info for commission accrual
+      const enrichedServices = [];
+      if (services && services.length) {
+        for (const s of services) {
+          const stylist = await tx.get('SELECT name, commission_rate FROM stylists WHERE id = ?', s.stylist_id);
+          enrichedServices.push({
+            ...s,
+            stylist_name: stylist?.name,
+            commission_rate: stylist?.commission_rate || 20
+          });
+        }
+      }
+
+      // Enrich products with name and cost price for COGS
+      const enrichedProducts = [];
+      if (products && products.length) {
+        for (const p of products) {
+          const product = await tx.get('SELECT name, cost_price FROM products WHERE id = ?', p.product_id);
+          enrichedProducts.push({
+            ...p,
+            name: product?.name,
+            cost_price: product?.cost_price || 0
+          });
+        }
+      }
+
+      await AccountingService.postSale({
+        id: sale_id,
+        total_amount: totalAmount,
+        payment_method: payment_method || 'CASH',
+        services: enrichedServices,
+        products: enrichedProducts
+      }, tx);
+      // -------------------------------
 
       return { sale_id, totalAmount, record_id };
     });

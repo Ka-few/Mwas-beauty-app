@@ -1,6 +1,7 @@
 import { MpesaService } from './mpesa.service';
 import axios from 'axios';
 import { initializeDB } from '../db/database';
+import { AccountingService } from './accounting.service';
 
 // In-memory map of invoiceId (record_id UUID) → checkoutRequestId
 const pendingPayments = new Map<string, string>();
@@ -74,12 +75,24 @@ export class PaymentService {
                     // Mark local sale as COMPLETED
                     try {
                         const db = await initializeDB();
-                        await db.run(
-                            `UPDATE sales SET status = 'COMPLETED', payment_method = 'Mpesa', mpesa_code = ? WHERE record_id = ?`,
-                            mpesaReceipt,
-                            invoiceId
-                        );
-                        console.log(`[PAYMENT] Sale ${invoiceId} marked COMPLETED. Receipt: ${mpesaReceipt}`);
+                        await db.transaction(async (tx: any) => {
+                            const sale = await tx.get('SELECT id, total_amount FROM sales WHERE record_id = ?', invoiceId);
+                            if (sale) {
+                                await tx.run(
+                                    `UPDATE sales SET status = 'COMPLETED', payment_method = 'Mpesa', mpesa_code = ? WHERE record_id = ?`,
+                                    mpesaReceipt,
+                                    invoiceId
+                                );
+
+                                // --- ACCOUNTING INTEGRATION ---
+                                await AccountingService.postMpesaPaymentConfirmation({
+                                    id: sale.id,
+                                    amount: sale.total_amount,
+                                    receipt: mpesaReceipt
+                                }, tx);
+                                // -------------------------------
+                            }
+                        });
                     } catch (dbErr) {
                         console.error('[PAYMENT] DB update error:', dbErr);
                     }
@@ -146,10 +159,23 @@ export class PaymentService {
                     pendingPayments.delete(invoiceId);
                     try {
                         const db = await initializeDB();
-                        await db.run(
-                            `UPDATE sales SET status = 'COMPLETED', payment_method = 'Mpesa', mpesa_code = ? WHERE record_id = ?`,
-                            receipt || 'STK_PAID', invoiceId
-                        );
+                        await db.transaction(async (tx: any) => {
+                            const sale = await tx.get('SELECT id, total_amount FROM sales WHERE record_id = ?', invoiceId);
+                            if (sale) {
+                                await tx.run(
+                                    `UPDATE sales SET status = 'COMPLETED', payment_method = 'Mpesa', mpesa_code = ? WHERE record_id = ?`,
+                                    receipt || 'STK_PAID', invoiceId
+                                );
+
+                                // --- ACCOUNTING INTEGRATION ---
+                                await AccountingService.postMpesaPaymentConfirmation({
+                                    id: sale.id,
+                                    amount: sale.total_amount,
+                                    receipt: receipt || 'STK_PAID'
+                                }, tx);
+                                // -------------------------------
+                            }
+                        });
                     } catch (e) { /* best effort */ }
                     break;
                 }
